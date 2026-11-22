@@ -78,6 +78,19 @@ button {
 #stf { height: 100%; width: 100%; background: var(--safe); border-radius: 4px; }
 button:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--ink); }
 button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
+#profiles h2 { font-family: var(--font-display); font-weight: 400; font-size: 1.1rem; margin: 0 0 8px; }
+.tip { position: relative; display: inline-block; width: 1.4em; height: 1.4em; line-height: 1.4em; text-align: center; border: 2px solid var(--ink); border-radius: 50%; font-size: .8rem; cursor: help; vertical-align: middle; }
+.tip .bubble { visibility: hidden; position: absolute; left: 0; top: 1.9em; z-index: 5; width: min(20rem, 70vw); padding: 10px 12px; text-align: left; font: 600 .8rem/1.35 var(--font-body); background: var(--ink); color: var(--paper); border-radius: 6px; }
+.tip:hover .bubble, .tip:focus .bubble { visibility: visible; }
+#proflist { list-style: none; margin: 0 0 10px; padding: 0; display: grid; gap: 8px; }
+#proflist li { display: flex; gap: 8px; }
+#proflist .pick { flex: 1; text-align: left; }
+#proflist .remove { background: transparent; color: var(--ink); box-shadow: none; padding: 10px 14px; }
+#profempty { margin: 0 0 10px; font-size: .9rem; opacity: .75; }
+#profnew { display: flex; gap: 8px; flex-wrap: wrap; }
+#profname { flex: 1 1 9rem; min-width: 0; font: inherit; padding: 10px 12px; border: 3px solid var(--ink); border-radius: 6px; background: #fffdf6; color: var(--ink); }
+#howto { margin-top: 14px; }
+#howto summary { cursor: pointer; font-family: var(--font-display); }
 #vig { position: fixed; inset: 0; pointer-events: none; opacity: 0; background: radial-gradient(ellipse at center, rgba(0,0,0,0) 28%, rgba(0,0,0,.92) 100%); }
 </style>
 
@@ -110,7 +123,19 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
 <div id="screen">
   <div class="card">
     <h1>In Broad <em>Daylight</em></h1>
-    <p class="sub">Level 0: The Party</p>
+    <p class="sub">A birthday party. Nobody has ever survived the night.</p>
+    <section id="profiles" aria-labelledby="profhead">
+      <h2 id="profhead">Who is playing?
+        <span class="tip" tabindex="0" role="button" aria-label="Why might my saved profile be missing?" aria-describedby="proftip">?<span class="bubble" id="proftip" role="tooltip">Profiles are saved only in this browser, on this device. If you cleared your cookies or site data, or you are using a different browser or device, your saved profile will not appear here.</span></span>
+      </h2>
+      <ul id="proflist"></ul>
+      <p id="profempty">No saved profiles in this browser yet.</p>
+      <form id="profnew">
+        <input id="profname" type="text" maxlength="16" placeholder="Your name" autocomplete="off" aria-label="Your name">
+        <button id="go" type="submit">Start</button>
+      </form>
+    </section>
+    <details id="howto"><summary>How to play</summary>
     <ul id="rules">
       <li>It is your birthday. Everyone else is gone. The clown stayed.</li>
       <li>Reach the green door before dark. Nobody has ever survived the night.</li>
@@ -124,7 +149,7 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
       <li class="kb"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move, mouse looks, click swings the bat (or kicks without it), <kbd>F</kbd> or right-click always kicks, <kbd>Space</kbd> jumps, hold <kbd>Shift</kbd> to run.</li>
       <li class="tc" hidden>Touch: drag on the left to move, drag on the right to look. The big button swings the bat, or kicks when you have none.</li>
     </ul>
-    <button id="go" type="button">Start</button>
+    </details>
     <p class="credit">Best with headphones. Birds, cicadas, laughs, screams and hits are public domain and CC0 recordings from Wikimedia Commons. The music box, the drone and the stingers were generated for this game.</p>
   </div>
 </div>
@@ -214,6 +239,35 @@ window.SND={"amb":"SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjYwLjE2LjEwMAAAAAAAAAAAAAAA/
     t.anisotropy = 8; return t;
   }
 
+  // ---------- level design: everything that differs between the yard and the house is data here ----------
+  // A world says where the player and the clown start, where the exit is, where pickups may lie and how friends arrive.
+  // Level 0 is the yard, level 1 the house, and so on, alternating (see worldForLevel).
+  var WORLDS = {
+    yard: {
+      name: 'yard',
+      playerStart: { x: 0, z: 17 },
+      clownStart: { x: -6, z: -4, facing: 0 },
+      clownArrivalHold: 0,
+      exit: { x: 0, z: -25, radius: 3 },
+      needsKey: false,
+      hasPapers: true,
+      pickupSpots: [[-8.5, 12.5], [8.5, 12], [-12.5, 3], [11, -2.5]],
+      friendEntrances: null // friends walk in from outside the fence
+    },
+    house: {
+      name: 'house',
+      playerStart: { x: 0, z: 7 },
+      clownStart: { x: 0, z: 18.6, facing: Math.PI },
+      clownArrivalHold: 1.2,
+      exit: { x: 0, z: -13.3, radius: 2.4 },
+      needsKey: true,
+      hasPapers: false,
+      pickupSpots: [[-5, 7], [-4.5, 0.5], [-5.5, -10], [-4, -4.5], [5, 6], [7, 4], [5, -8], [6.5, -3.5], [0, -9], [0, 3]],
+      friendEntrances: [[0, 18.4], [-0.8, 19], [0.8, 19], [0, 16.8]] // they come up the stairs
+    }
+  };
+  var world = WORLDS.yard;
+  function worldForLevel(levelNumber) { return levelNumber % 2 === 1 ? WORLDS.house : WORLDS.yard; }
   // ---------- obstacles ----------
   var obstacles = [], yardObs = obstacles, houseObs = [];
   function addObstacle(cx, cz, w, d, h) { var o = { x0: cx - w / 2, x1: cx + w / 2, z0: cz - d / 2, z1: cz + d / 2, h: h || 3.6 }; obstacles.push(o); return o; }
@@ -1091,7 +1145,6 @@ window.SND={"amb":"SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjYwLjE2LjEwMAAAAAAAAAAAAAAA/
 
   // ---------- the house upstairs: a hall with four rooms, a locked attic door at the far end ----------
   var inHouse = false, hasKey = false, lockT = 0, atticOpen = 0;
-  var HOUSE_SPOTS = [[-5, 7], [-4.5, 0.5], [-5.5, -10], [-4, -4.5], [5, 6], [7, 4], [5, -8], [6.5, -3.5], [0, -9], [0, 3]];
   var houseG = new THREE.Group(); houseG.visible = false; scene.add(houseG);
   var atticPivot = new THREE.Group();
   (function buildHouse() {
@@ -1151,9 +1204,9 @@ window.SND={"amb":"SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjYwLjE2LjEwMAAAAAAAAAAAAAAA/
     var kh = new THREE.Mesh(new THREE.RingGeometry(0.5, 0.75, 32), new THREE.MeshBasicMaterial({ color: 0xffd25a, transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide })); kh.rotation.x = -Math.PI / 2; kh.position.y = 0.04; keyPick.add(kh); keyPick.userData.halo = kh;
   })();
   function setWorld(h) {
-    inHouse = h; obstacles = h ? houseObs : yardObs; buildBlocked();
+    world = h ? WORLDS.house : WORLDS.yard; inHouse = h; obstacles = h ? houseObs : yardObs; buildBlocked();
     yardG.visible = !h; houseG.visible = h; sky.visible = !h; sun.castShadow = !h; lamp.distance = h ? 12 : 7;
-    hemi.groundColor.setHex(h ? 0x3a2a1c : 0x6a7a3a); DOOR.set(0, 0, h ? -13.3 : -25);
+    hemi.groundColor.setHex(h ? 0x3a2a1c : 0x6a7a3a); DOOR.set(world.exit.x, 0, world.exit.z);
     atticOpen = 0; atticPivot.rotation.y = 0; hasKey = false; lockT = 0;
   }
   function houseLight(frac) { // dim, warm, and darker as the day runs out
@@ -1162,16 +1215,16 @@ window.SND={"amb":"SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjYwLjE2LjEwMAAAAAAAAAAAAAAA/
   }
 
   function reset() {
-    setWorld(level % 2 === 1);
-    camera.position.set(0, 1.7, inHouse ? 7 : 17); pFeet = pv = 0; stam = 1; stamLock = false; yaw = 0; pitch = 0; camera.rotation.z = 0; timeLeft = DAY;
-    clown.position.set(inHouse ? 0 : -6, 0, inHouse ? 18.6 : -4); clown.rotation.y = inHouse ? Math.PI : 0; clown.visible = true;
-    cl.down = false; cl.tilt = 0; cl.ext = 2; cl.vx = cl.vz = 0; cl.jolt = 0; cl.blockedT = 0; cl.giggleT = 8; cl.crawl = false; cl.cph = 0; cl.stanceT = 0; cl.sev = 0; cl.burst = 0; cl.burstT = 4; cl.tangleT = 0; cl.grabT = 0; cl.stagT = 0; cl.hornT = 0; cl.arriveT = inHouse ? 1.2 : 0; cl.armed = false; cl.plate = 0; cl.plateT = 0; cl.plateCool = 0; cl.batKill = false; cl.everDown = false; cl.rollA = cl.rollV = cl.spin = 0;
+    setWorld(worldForLevel(level) === WORLDS.house);
+    camera.position.set(world.playerStart.x, 1.7, world.playerStart.z); pFeet = pv = 0; stam = 1; stamLock = false; yaw = 0; pitch = 0; camera.rotation.z = 0; timeLeft = DAY;
+    clown.position.set(world.clownStart.x, 0, world.clownStart.z); clown.rotation.y = world.clownStart.facing; clown.visible = true;
+    cl.down = false; cl.tilt = 0; cl.ext = 2; cl.vx = cl.vz = 0; cl.jolt = 0; cl.blockedT = 0; cl.giggleT = 8; cl.crawl = false; cl.cph = 0; cl.stanceT = 0; cl.sev = 0; cl.burst = 0; cl.burstT = 4; cl.tangleT = 0; cl.grabT = 0; cl.stagT = 0; cl.hornT = 0; cl.arriveT = world.clownArrivalHold; cl.armed = false; cl.plate = 0; cl.plateT = 0; cl.plateCool = 0; cl.batKill = false; cl.everDown = false; cl.rollA = cl.rollV = cl.spin = 0;
     knockReset(); resetBat(); shakeT = 0; camera.fov = 70; camera.updateProjectionMatrix(); flowT = 0; lamp.intensity = 0;
     inner.rotation.set(0, 0, 0); inner.position.set(0, 0, 0); basePose(main.T); basePose(main.P); applyPose(main); setFace(main, 'evil'); main.bat.visible = false;
     friends.forEach(function (f) { f.on = false; f.spotted = false; f.hitT = 0; f.vx = f.vz = 0; f.r.root.visible = false; f.down = false; f.downT = 0; f.tilt = f.rollA = f.rollV = f.spin = f.jolt = f.hornT = 0; f.r.inner.rotation.set(0, 0, 0); f.r.inner.position.set(0, 0, 0); });
     balloon.visible = false; balloonHeld = false; killer = null; fear = 0;
     clearMarks(); swingT = 0; hitPending = false; batSide = 1; kickT = 0; kickCool = 0; kickPending = false;
-    clueObjs.forEach(function (G, k) { G.visible = !clueGot[k] && !inHouse; });
+    clueObjs.forEach(function (G, k) { G.visible = !clueGot[k] && world.hasPapers; });
     setDay(1); el.hint.textContent = 'Level ' + level;
   }
 
@@ -1228,7 +1281,7 @@ window.SND={"amb":"SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjYwLjE2LjEwMAAAAAAAAAAAAAAA/
     state = 'transition'; touchUi(false); play('door', 0.9); play('win', 0.8);
     keys = {}; el.fade.style.transition = 'opacity .6s'; el.fade.style.opacity = 1;
     var keepBat = cl.armed, myBat = hasBat, myHorn = hasHorn, fol = friends.map(function (f) { return f.on; });
-    later(function () { level++; reset(); if (keepBat) { cl.armed = true; batPick.visible = false; }
+    later(function () { level++; rememberLevelReached(level); reset(); if (keepBat) { cl.armed = true; batPick.visible = false; }
       if (myBat) { hasBat = true; batPick.visible = false; batP.set(0.3, -1.4, -0.5); btnLabel(); }
       if (myHorn) { hasHorn = true; hornPick.visible = false; hornUi(); }
       fol.forEach(function (on, i) { if (on) spawnFriend(friends[i]); }); introT = 0; el.fadetxt.textContent = 'Level ' + level; }, 700);
@@ -1238,7 +1291,6 @@ window.SND={"amb":"SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjYwLjE2LjEwMAAAAAAAAAAAAAAA/
       toast(inHouse ? 'Level ' + level + ': upstairs' : 'Level ' + level, 1500);
     }, 2300);
   }
-  el.go.onclick = function () { begin(); };
 
   function openNote(k) {
     clueGot[k] = true; clueObjs[k].visible = false; state = 'read'; keys = {}; touchUi(false);
@@ -1254,26 +1306,6 @@ window.SND={"amb":"SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjYwLjE2LjEwMAAAAAAAAAAAAAAA/
   el.notego.onclick = closeNote;
   el.notego.addEventListener('mousedown', function (e) { e.stopPropagation(); });
 
-  function spawnFriend(f) {
-    var best = null, bs = -1e9, p = f.r.root.position;
-    [-1, 1].forEach(function (s) { for (var k = 0; k < 5; k++) {
-      var x = s * (ARENA.x + 1.6), z = Math.max(ARENA.zMin + 1, Math.min(ARENA.zMax, camera.position.z - 16 + k * 7)), d = Math.hypot(x - camera.position.x, z - camera.position.z);
-      var sc = (seenBy(x, z, 0.35) ? -100 : 0) + (d < 9 ? -50 : 0) - Math.abs(d - 15) - (z > camera.position.z ? 6 : 0) + Math.random() * 4;
-      friends.forEach(function (o) { if (o.on && Math.hypot(o.r.root.position.x - x, o.r.root.position.z - z) < 6) sc -= 40; });
-      if (sc > bs) { bs = sc; best = [x, z]; }
-    } });
-    if (inHouse) { // they come up the stairs
-      var hs = [[0, 18.4], [-0.8, 19], [0.8, 19], [0, 16.8]], pd = -1;
-      hs.forEach(function (q) {
-        var ok = friends.every(function (o) { return !o.on || o === f || Math.hypot(o.r.root.position.x - q[0], o.r.root.position.z - q[1]) > 1.3; }), dq = Math.hypot(q[0] - camera.position.x, q[1] - camera.position.z);
-        if (ok && dq > pd) { pd = dq; best = q; }
-      });
-      if (!best) best = hs[0];
-    }
-    f.on = true; f.spotted = false; f.hitT = 0; f.vx = f.vz = 0; p.set(best[0], 0, best[1]); f.r.root.visible = true;
-    f.r.root.rotation.y = Math.atan2(camera.position.x - p.x, camera.position.z - p.z);
-    basePose(f.r.T); f.r.T.hroll = 0.3; animate(f.r, 1, 100); setFace(f.r, 'evil');
-  }
   addEventListener('keydown', function (e) { if (e.code === 'Space' && state === 'play') e.preventDefault(); keys[e.code] = true; if (e.code === 'KeyF') kick(); if (e.code === 'KeyQ') blowHorn(); if (state === 'read' && (e.code === 'Enter' || e.code === 'KeyE')) closeNote(); });
   addEventListener('keyup', function (e) { keys[e.code] = false; });
   addEventListener('mousemove', function (e) {
@@ -1375,7 +1407,7 @@ window.SND={"amb":"SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjYwLjE2LjEwMAAAAAAAAAAAAAAA/
   }
 
   // the bat has to be found: it glows somewhere on the lawn, and the clown can snatch it
-  var hasBat = false, batHintT = 0, BAT_SPOTS = [[-8.5, 12.5], [8.5, 12], [-12.5, 3], [11, -2.5]];
+  var hasBat = false, batHintT = 0;
   var batPick = new THREE.Group(); scene.add(batPick);
   var pickBat = new THREE.Mesh(batGeo, batMat); pickBat.position.y = 0.4; pickBat.rotation.z = 0.35; pickBat.castShadow = true; batPick.add(pickBat);
   var beam = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, 9, 16, 1, true), new THREE.MeshBasicMaterial({ color: 0xffd35a, transparent: true, opacity: 0.16, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide })); beam.position.y = 4.5; batPick.add(beam);
@@ -1437,10 +1469,10 @@ window.SND={"amb":"SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjYwLjE2LjEwMAAAAAAAAAAAAAAA/
   function placeBat(x, z) { batPick.position.set(x, 0, z); batPick.visible = true; }
   function resetBat() {
     hasBat = false; hasHorn = false; hasKey = false; main.bat.visible = false; hornCool = 0; hornShowT = 0; hornFP.visible = false; lockT = 0;
-    var spots = (inHouse ? HOUSE_SPOTS : BAT_SPOTS).slice();
+    var spots = world.pickupSpots.slice();
     function take() { return spots.splice(Math.floor(Math.random() * spots.length), 1)[0]; }
     var sp = take(), hp = take(); placeBat(sp[0], sp[1]); hornPick.position.set(hp[0], 0, hp[1]); hornPick.visible = true;
-    if (inHouse) { var kp = take(); keyPick.position.set(kp[0], 0, kp[1]); keyPick.visible = true; } else keyPick.visible = false;
+    if (world.needsKey) { var kp = take(); keyPick.position.set(kp[0], 0, kp[1]); keyPick.visible = true; } else keyPick.visible = false;
     btnLabel(); hornUi();
   }
   var foundEl = document.createElement('div'), flashEl = document.createElement('div');
@@ -1749,6 +1781,26 @@ window.SND={"amb":"SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjYwLjE2LjEwMAAAAAAAAAAAAAAA/
     if (creepT <= 0) { creepT = 3.5 + Math.random() * 3; playClown('giggle', 0.2, 1.65 + Math.random() * 0.2, who); }
   }
 
+  function spawnFriend(f) {
+    var best = null, bs = -1e9, p = f.r.root.position;
+    [-1, 1].forEach(function (s) { for (var k = 0; k < 5; k++) {
+      var x = s * (ARENA.x + 1.6), z = Math.max(ARENA.zMin + 1, Math.min(ARENA.zMax, camera.position.z - 16 + k * 7)), d = Math.hypot(x - camera.position.x, z - camera.position.z);
+      var sc = (seenBy(x, z, 0.35) ? -100 : 0) + (d < 9 ? -50 : 0) - Math.abs(d - 15) - (z > camera.position.z ? 6 : 0) + Math.random() * 4;
+      friends.forEach(function (o) { if (o.on && Math.hypot(o.r.root.position.x - x, o.r.root.position.z - z) < 6) sc -= 40; });
+      if (sc > bs) { bs = sc; best = [x, z]; }
+    } });
+    if (world.friendEntrances) { // they come up the stairs
+      var hs = world.friendEntrances, pd = -1;
+      hs.forEach(function (q) {
+        var ok = friends.every(function (o) { return !o.on || o === f || Math.hypot(o.r.root.position.x - q[0], o.r.root.position.z - q[1]) > 1.3; }), dq = Math.hypot(q[0] - camera.position.x, q[1] - camera.position.z);
+        if (ok && dq > pd) { pd = dq; best = q; }
+      });
+      if (!best) best = hs[0];
+    }
+    f.on = true; f.spotted = false; f.hitT = 0; f.vx = f.vz = 0; p.set(best[0], 0, best[1]); f.r.root.visible = true;
+    f.r.root.rotation.y = Math.atan2(camera.position.x - p.x, camera.position.z - p.z);
+    basePose(f.r.T); f.r.T.hroll = 0.3; animate(f.r, 1, 100); setFace(f.r, 'evil');
+  }
   var FR_AT = [0.8, 0.6, 0.42];
   function updateFriends(dt, t, frac) {
     var caught = null, close = 0;
@@ -1881,11 +1933,11 @@ window.SND={"amb":"SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjYwLjE2LjEwMAAAAAAAAAAAAAAA/
     if (introT <= 0) el.hint.textContent = (hasBat ? 'Bat in hand' : cl.armed ? 'HE HAS THE BAT' : 'Find the bat') + (inHouse ? (hasKey ? ' · attic door ' : ' · find the key · attic door ') : ' · door ') + Math.round(dd) + ' m' + (inHouse ? '' : ' · papers ' + clueGot.filter(Boolean).length + '/' + CLUES.length);
 
     if (introT > 0) return;
-    if (!hooks.bot && !inHouse) for (var ci = 0; ci < CLUES.length; ci++) if (!clueGot[ci] && Math.hypot(camera.position.x - CLUES[ci].x, camera.position.z - CLUES[ci].z) < 1.25) { openNote(ci); return; }
-    var doorR = inHouse ? 2.4 : 3;
+    if (!hooks.bot && world.hasPapers) for (var ci = 0; ci < CLUES.length; ci++) if (!clueGot[ci] && Math.hypot(camera.position.x - CLUES[ci].x, camera.position.z - CLUES[ci].z) < 1.25) { openNote(ci); return; }
+    var doorR = world.exit.radius;
     lockT = Math.max(0, lockT - dt);
-    if (inHouse && !hasKey && dd < doorR && lockT <= 0) { lockT = 3; toast('Locked. Find the key.', 1400); play('thud', 0.4, 0.8); }
-    if (dd < doorR && (!inHouse || hasKey)) { if (inHouse) atticOpen = 0.001; escape(); }
+    if (world.needsKey && !hasKey && dd < doorR && lockT <= 0) { lockT = 3; toast('Locked. Find the key.', 1400); play('thud', 0.4, 0.8); }
+    if (dd < doorR && (!world.needsKey || hasKey)) { if (inHouse) atticOpen = 0.001; escape(); }
     else if (cl.batKill) { cl.batKill = false; die(); }
     else if (dist < 0.9 && !cl.down && cl.tilt > -0.3 && cl.stanceT <= 0 && cl.grabT <= 0 && cl.stagT <= 0 && cl.hornT <= 0 && cl.arriveT <= 0) die();
     else if (fr.caught) die(fr.caught);
@@ -1899,9 +1951,89 @@ window.SND={"amb":"SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjYwLjE2LjEwMAAAAAAAAAAAAAAA/
     draw();
     requestAnimationFrame(loop);
   }
-  window.__bbd = { hooks: hooks, setLevel: function (n) { level = n; reset(); introT = 0; }, blowHorn: blowHorn, keyPick: keyPick, hornPick: hornPick, batPick: batPick, setKey: function (v) { hasKey = v; }, setHorn: function (v) { hasHorn = v; }, inHouse: function () { return inHouse; }, hitFriend: hitFriend, doHit: doHit, targets: targets, step: function (dt, t) { update(dt, t); }, begin: begin, swing: act, act: act, kick: kick, camera: camera, clown: clown, cl: cl, main: main, friends: friends, spawnFriend: spawnFriend, setDay: setDay, openNote: openNote, nightfall: nightfall, takeBat: takeBat, loseBat: loseBat, updateClown: updateClown,
+  window.__bbd = { hooks: hooks, profiles: { load: loadProfileStore, render: renderProfiles }, setLevel: function (n) { level = n; reset(); introT = 0; }, blowHorn: blowHorn, keyPick: keyPick, hornPick: hornPick, batPick: batPick, setKey: function (v) { hasKey = v; }, setHorn: function (v) { hasHorn = v; }, inHouse: function () { return inHouse; }, hitFriend: hitFriend, doHit: doHit, targets: targets, step: function (dt, t) { update(dt, t); }, begin: begin, swing: act, act: act, kick: kick, camera: camera, clown: clown, cl: cl, main: main, friends: friends, spawnFriend: spawnFriend, setDay: setDay, openNote: openNote, nightfall: nightfall, takeBat: takeBat, loseBat: loseBat, updateClown: updateClown,
     keys: function () { return keys; }, st: function () { return { hasBat: hasBat, state: state, timeLeft: timeLeft, level: level, yaw: yaw, introT: introT, pFeet: pFeet, fear: fear, post: !!post, stance: cl.stanceT, armed: cl.armed }; },
     set: function (o) { if (o.introT != null) introT = o.introT; if (o.timeLeft != null) timeLeft = o.timeLeft; if (o.state) state = o.state; }, setYaw: function (y) { yaw = y; }, setPitch: function (p) { pitch = p; }, render: draw };
   reset(); requestAnimationFrame(loop);
+  // ---------- title screen: saved player profiles, kept only in this browser (localStorage) ----------
+  // A profile remembers the furthest level its player reached. Starting it resumes there (the checkpoint).
+  var PROFILE_STORAGE_KEY = 'inBroadDaylight.profiles.v1';
+  var MAX_NAME_LENGTH = 16;
+  var profileStore = { profiles: [] };
+  var activeProfile = null;
+  var profileEls = {
+    list: document.getElementById('proflist'), empty: document.getElementById('profempty'),
+    form: document.getElementById('profnew'), nameInput: document.getElementById('profname')
+  };
+
+  function loadProfileStore() {
+    try {
+      var saved = JSON.parse(localStorage.getItem(PROFILE_STORAGE_KEY));
+      if (saved && Array.isArray(saved.profiles)) profileStore = saved;
+    } catch (error) { profileStore = { profiles: [] }; }
+  }
+
+  function saveProfileStore() {
+    try { localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profileStore)); } catch (error) { /* storage blocked: play without saving */ }
+  }
+
+  function findProfile(name) {
+    var wanted = name.toLowerCase();
+    return profileStore.profiles.filter(function (profile) { return profile.name.toLowerCase() === wanted; })[0] || null;
+  }
+
+  function rememberLevelReached(levelNumber) {
+    if (!activeProfile) return;
+    activeProfile.level = Math.max(activeProfile.level, levelNumber);
+    activeProfile.updated = Date.now();
+    saveProfileStore();
+  }
+
+  function startProfile(profile) {
+    activeProfile = profile;
+    profile.updated = Date.now();
+    saveProfileStore();
+    if (profile.level > 0) { level = profile.level; begin(true); } else begin();
+  }
+
+  function profileLabel(profile) {
+    return profile.name + ' \u00b7 ' + (profile.level > 0 ? 'Level ' + profile.level : 'new game');
+  }
+
+  function removeProfile(profile) {
+    if (!window.confirm('Delete the saved profile "' + profile.name + '"?')) return;
+    profileStore.profiles = profileStore.profiles.filter(function (other) { return other !== profile; });
+    saveProfileStore();
+    renderProfiles();
+  }
+
+  function renderProfiles() {
+    profileEls.list.textContent = '';
+    var newestFirst = profileStore.profiles.slice().sort(function (first, second) { return second.updated - first.updated; });
+    newestFirst.forEach(function (profile) {
+      var item = document.createElement('li'), pick = document.createElement('button'), remove = document.createElement('button');
+      pick.type = 'button'; pick.className = 'pick'; pick.textContent = profileLabel(profile);
+      pick.onclick = function () { startProfile(profile); };
+      remove.type = 'button'; remove.className = 'remove'; remove.textContent = '\u00d7'; remove.setAttribute('aria-label', 'Delete ' + profile.name);
+      remove.onclick = function () { removeProfile(profile); };
+      item.appendChild(pick); item.appendChild(remove); profileEls.list.appendChild(item);
+    });
+    profileEls.empty.hidden = newestFirst.length > 0;
+  }
+
+  profileEls.form.onsubmit = function (event) {
+    event.preventDefault();
+    var name = profileEls.nameInput.value.trim().slice(0, MAX_NAME_LENGTH) || 'Player';
+    var profile = findProfile(name);
+    if (!profile) {
+      profile = { name: name, level: 0, updated: Date.now() };
+      profileStore.profiles.push(profile);
+    }
+    profileEls.nameInput.value = '';
+    startProfile(profile);
+  };
+
+  loadProfileStore();
+  renderProfiles();
 })();
 </script>
