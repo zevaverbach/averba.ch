@@ -1852,6 +1852,215 @@ for (var i = 0; i < 14; i++) {
     scene.add(hat);
   });
 })();
+// ---------- beyond the fence: the street, a driveway and the neighbours' houses ----------
+// Everything here lies outside ARENA, so none of it collides; it only has to look like a quiet suburb.
+var STREET_Z = 38,
+  STREET_WIDTH = 9,
+  DRIVEWAY_X = 11;
+function asphaltTexture() {
+  var canvas = makeCanvas(512, 128),
+    context = canvas.getContext('2d');
+  context.fillStyle = '#4a4b4e';
+  context.fillRect(0, 0, 512, 128);
+  for (var i = 0; i < 2500; i++) {
+    var shade = 50 + seededRandom() * 50;
+    context.fillStyle = 'rgba(' + shade + ',' + shade + ',' + (shade + 4) + ',0.4)';
+    context.fillRect(
+      seededRandom() * 512,
+      seededRandom() * 128,
+      1 + seededRandom() * 2,
+      1 + seededRandom() * 2
+    );
+  }
+  context.fillStyle = '#d9c64a';
+  for (var dash = 0; dash < 512; dash += 64) context.fillRect(dash, 61, 36, 6);
+  return canvasTexture(canvas, 40, 1);
+}
+function concreteTexture() {
+  var canvas = makeCanvas(128, 128),
+    context = canvas.getContext('2d');
+  context.fillStyle = '#b4b1a8';
+  context.fillRect(0, 0, 128, 128);
+  for (var i = 0; i < 1200; i++) {
+    var shade = 140 + seededRandom() * 60;
+    context.fillStyle = 'rgba(' + shade + ',' + shade + ',' + (shade - 6) + ',0.35)';
+    context.fillRect(seededRandom() * 128, seededRandom() * 128, 2, 2);
+  }
+  context.fillStyle = 'rgba(70,68,62,0.55)';
+  context.fillRect(0, 0, 128, 2);
+  context.fillRect(0, 0, 2, 128);
+  return canvasTexture(canvas, 1, 1);
+}
+function addFlat(width, depth, material, x, y, z) {
+  var mesh = new THREE.Mesh(new THREE.PlaneGeometry(width, depth), material);
+  mesh.rotation.x = -Math.PI / 2;
+  mesh.position.set(x, y, z);
+  mesh.receiveShadow = true;
+  scene.add(mesh);
+  return mesh;
+}
+var nearSidewalkZ = STREET_Z - STREET_WIDTH / 2 - 1.2;
+(function streetAndDriveway() {
+  var roadMaterial = new THREE.MeshLambertMaterial({ map: asphaltTexture() });
+  addFlat(420, STREET_WIDTH, roadMaterial, 0, 0.02, STREET_Z);
+  var sidewalkMaterial = new THREE.MeshLambertMaterial({ map: concreteTexture() }),
+    farSidewalkZ = STREET_Z + STREET_WIDTH / 2 + 1.2;
+  sidewalkMaterial.map.repeat.set(160, 1);
+  addFlat(420, 2.4, sidewalkMaterial, 0, 0.05, nearSidewalkZ);
+  addFlat(420, 2.4, sidewalkMaterial, 0, 0.05, farSidewalkZ);
+  var curbMaterial = lambertMaterial(0x9a978e);
+  addBox(420, 0.14, 0.2, curbMaterial, 0, 0.07, STREET_Z - STREET_WIDTH / 2).castShadow = false;
+  addBox(420, 0.14, 0.2, curbMaterial, 0, 0.07, STREET_Z + STREET_WIDTH / 2).castShadow = false;
+  var drivewayMaterial = new THREE.MeshLambertMaterial({ map: concreteTexture() }),
+    drivewayStartZ = ARENA.zMax + 0.5;
+  drivewayMaterial.map.repeat.set(2, 5);
+  addFlat(
+    4.6,
+    nearSidewalkZ - drivewayStartZ,
+    drivewayMaterial,
+    DRIVEWAY_X,
+    0.04,
+    (drivewayStartZ + nearSidewalkZ) / 2
+  );
+})();
+function addCar(x, z, rotationY, paintColor) {
+  var car = new THREE.Group(),
+    paint = lambertMaterial(paintColor),
+    glass = lambertMaterial(0x2a3440),
+    tire = lambertMaterial(0x151515);
+  var body = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.7, 4.3), paint);
+  body.position.y = 0.65;
+  car.add(body);
+  var cabin = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.6, 2.3), glass);
+  cabin.position.set(0, 1.3, -0.1);
+  car.add(cabin);
+  var roof = new THREE.Mesh(new THREE.BoxGeometry(1.64, 0.08, 2.1), paint);
+  roof.position.set(0, 1.64, -0.1);
+  car.add(roof);
+  [-1, 1].forEach(function (side) {
+    [-1.4, 1.4].forEach(function (end) {
+      var wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.36, 0.25, 16), tire);
+      wheel.rotation.z = Math.PI / 2;
+      wheel.position.set(side * 0.9, 0.36, end);
+      car.add(wheel);
+    });
+  });
+  car.position.set(x, 0, z);
+  car.rotation.y = rotationY;
+  scene.add(car);
+}
+function addNeighbourHouse(x, z, rotationY, wallColor, roofColor, width) {
+  var neighbour = new THREE.Group(),
+    depth = 9,
+    wallHeight = 4.6,
+    trimMaterial = lambertMaterial(0xf2eee4),
+    windowMaterial = new THREE.MeshLambertMaterial({ color: 0x5d7a92, emissive: 0x1a2530 });
+  var walls = new THREE.Mesh(
+    new THREE.BoxGeometry(width, wallHeight, depth),
+    lambertMaterial(wallColor)
+  );
+  walls.position.y = wallHeight / 2;
+  neighbour.add(walls);
+  var roofGeometry = new THREE.CylinderGeometry(depth * 0.62, depth * 0.62, width + 1, 3);
+  roofGeometry.rotateZ(Math.PI / 2);
+  roofGeometry.rotateX(-Math.PI / 2);
+  var roof = new THREE.Mesh(roofGeometry, lambertMaterial(roofColor));
+  roof.position.y = wallHeight + 0.5;
+  roof.scale.set(1, 0.38, 0.8);
+  neighbour.add(roof);
+  var chimney = new THREE.Mesh(new THREE.BoxGeometry(0.8, 2.2, 0.8), lambertMaterial(0x7d4a3a));
+  chimney.position.set(width * 0.3, wallHeight + 1.6, -1);
+  neighbour.add(chimney);
+  var door = new THREE.Mesh(new THREE.BoxGeometry(1.1, 2.1, 0.12), lambertMaterial(0x3b4a7a));
+  door.position.set(0, 1.05, depth / 2 + 0.02);
+  neighbour.add(door);
+  var windowSpacing = width / 4;
+  [-1.5, 1.5].forEach(function (slot) {
+    [1.6, 3.5].forEach(function (windowY) {
+      var frame = new THREE.Mesh(new THREE.BoxGeometry(1.3, 1.2, 0.1), trimMaterial);
+      frame.position.set(slot * windowSpacing, windowY, depth / 2 + 0.02);
+      neighbour.add(frame);
+      var glass = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.9, 0.12), windowMaterial);
+      glass.position.set(slot * windowSpacing, windowY, depth / 2 + 0.04);
+      neighbour.add(glass);
+    });
+  });
+  neighbour.position.set(x, 0, z);
+  neighbour.rotation.y = rotationY;
+  scene.add(neighbour);
+}
+(function neighbourhood() {
+  var wallColors = [0xd8c9a8, 0xb9c8d6, 0xc9b0a0, 0xe2dcc8, 0xa9bfa5, 0xd4b46a],
+    roofColors = [0x5a3a32, 0x3f4650, 0x6b4a3a, 0x4a4036],
+    houseCount = 0;
+  function nextHouse(x, z, rotationY) {
+    addNeighbourHouse(
+      x,
+      z,
+      rotationY,
+      wallColors[houseCount % wallColors.length],
+      roofColors[(houseCount * 3) % roofColors.length],
+      9 + (houseCount % 3) * 1.5
+    );
+    houseCount++;
+  }
+  // across the street, facing the yard
+  [-90, -62, -34, -6, 24, 52, 80, 108].forEach(function (x) {
+    nextHouse(x, STREET_Z + STREET_WIDTH / 2 + 12, Math.PI);
+  });
+  // next door on either side of the yard, turned to face it
+  [-14, 2, 18].forEach(function (z) {
+    nextHouse(-ARENA.x - 36, z, Math.PI / 2);
+    nextHouse(ARENA.x + 36, z, -Math.PI / 2);
+  });
+  // behind the house, a row facing the next street over
+  [-70, -35, 0, 35, 70].forEach(function (x) {
+    nextHouse(x, ARENA.zMin - 36, 0);
+  });
+  addCar(DRIVEWAY_X, ARENA.zMax + 7, 0, 0x8a2a2a);
+  addCar(-27, STREET_Z + 2.2, Math.PI / 2, 0x2f4a6e);
+  addCar(46, STREET_Z - 2.2, -Math.PI / 2, 0xd9d6cc);
+  // lamp posts and the mailbox along the near pavement
+  var postMaterial = lambertMaterial(0x2a2d30),
+    lanternMaterial = new THREE.MeshBasicMaterial({ color: 0xfff1c4 });
+  for (var lampX = -60; lampX <= 60; lampX += 24) {
+    var post = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.09, 4.6, 8), postMaterial);
+    post.position.set(lampX, 2.3, nearSidewalkZ + 0.9);
+    scene.add(post);
+    var lantern = new THREE.Mesh(new THREE.SphereGeometry(0.28, 12, 8), lanternMaterial);
+    lantern.position.set(lampX, 4.7, nearSidewalkZ + 0.9);
+    scene.add(lantern);
+  }
+  var mailbox = new THREE.Group(),
+    mailboxPost = new THREE.Mesh(new THREE.BoxGeometry(0.1, 1.1, 0.1), lambertMaterial(0x5a4632)),
+    mailboxBody = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.26, 0.5), lambertMaterial(0x2f4a8a));
+  mailboxPost.position.y = 0.55;
+  mailboxBody.position.y = 1.2;
+  mailbox.add(mailboxPost);
+  mailbox.add(mailboxBody);
+  mailbox.position.set(DRIVEWAY_X + 3.2, 0, nearSidewalkZ - 0.6);
+  scene.add(mailbox);
+})();
+// a far-off ring of trees closing the horizon, so the world does not end at the grass
+(function horizonTrees() {
+  var count = 90,
+    crowns = new THREE.InstancedMesh(
+      new THREE.IcosahedronGeometry(1, 1),
+      lambertMaterial(0x4f7a3a),
+      count
+    ),
+    dummy = new THREE.Object3D();
+  for (var index = 0; index < count; index++) {
+    var angle = (index / count) * Math.PI * 2 + seededRandom() * 0.05,
+      distance = 100 + seededRandom() * 30,
+      size = 5 + seededRandom() * 5;
+    dummy.position.set(Math.sin(angle) * distance, size * 1.4, Math.cos(angle) * distance);
+    dummy.scale.set(size, size * 1.2, size);
+    dummy.updateMatrix();
+    crowns.setMatrixAt(index, dummy.matrix);
+  }
+  scene.add(crowns);
+})();
 // ---------- papers: what the children before you worked out ----------
 var CLUES = [
   {
@@ -3811,6 +4020,107 @@ function houseLight(frac) {
   scene.fog.near = 4;
   scene.fog.far = 20 + 16 * frac - 2 * floorNo;
   lamp.intensity = 1.05;
+  dimHouseWindows(frac);
+}
+// ---------- windows in the outer walls of the house, looking out on the neighbourhood ----------
+// The rooms are sealed boxes, so each window is a pane painted with a flat view of the street.
+// houseLight() dims these panes as the day runs out.
+var houseWindowMaterials = [];
+function neighbourhoodViewTexture() {
+  var canvas = makeCanvas(256, 256),
+    context = canvas.getContext('2d');
+  var skyGradient = context.createLinearGradient(0, 0, 0, 150);
+  skyGradient.addColorStop(0, '#5f8fd0');
+  skyGradient.addColorStop(1, '#cfe0ee');
+  context.fillStyle = skyGradient;
+  context.fillRect(0, 0, 256, 256);
+  context.fillStyle = '#6f9a58';
+  context.fillRect(0, 150, 256, 106);
+  for (var treeIndex = 0; treeIndex < 9; treeIndex++) {
+    context.fillStyle = 'rgba(70,120,60,0.85)';
+    context.beginPath();
+    context.arc(treeIndex * 32 + 10, 138, 22 + (treeIndex % 3) * 6, 0, Math.PI * 2);
+    context.fill();
+  }
+  [18, 100, 178].forEach(function (houseX, houseIndex) {
+    context.fillStyle = ['#d8c9a8', '#b9c8d6', '#c9b0a0'][houseIndex];
+    context.fillRect(houseX, 126, 64, 40);
+    context.fillStyle = '#5a3a32';
+    context.beginPath();
+    context.moveTo(houseX - 6, 126);
+    context.lineTo(houseX + 32, 100);
+    context.lineTo(houseX + 70, 126);
+    context.fill();
+    context.fillStyle = '#3b4a7a';
+    context.fillRect(houseX + 28, 146, 9, 20);
+  });
+  context.fillStyle = '#4a4b4e';
+  context.fillRect(0, 186, 256, 34);
+  context.fillStyle = '#d9c64a';
+  for (var dash = 0; dash < 256; dash += 40) context.fillRect(dash, 202, 22, 3);
+  return canvasTexture(canvas);
+}
+(function buildWindows() {
+  var viewTexture = neighbourhoodViewTexture(),
+    frameMaterial = lambertMaterial(0x2a1f16),
+    curtainMaterial = lambertMaterial(0x7a3a3a),
+    windowWidth = 2.2,
+    windowHeight = 1.3,
+    windowCenterY = 2.15,
+    insideOffset = 0.18; // from the wall's centre line to just inside its face
+  function addPart(width, height, depth, material, x, y, z) {
+    var mesh = new THREE.Mesh(new THREE.BoxGeometry(width, height, depth), material);
+    mesh.position.set(x, y, z);
+    houseG.add(mesh);
+  }
+  function addWindow(wallX, z) {
+    var inward = wallX < 0 ? 1 : -1,
+      paneX = wallX + inward * (insideOffset - 0.02),
+      frameX = wallX + inward * insideOffset;
+    var paneMaterial = new THREE.MeshBasicMaterial({ map: viewTexture });
+    houseWindowMaterials.push(paneMaterial);
+    var pane = new THREE.Mesh(new THREE.PlaneGeometry(windowWidth, windowHeight), paneMaterial);
+    pane.rotation.y = (inward * Math.PI) / 2;
+    pane.position.set(paneX, windowCenterY, z);
+    houseG.add(pane);
+    var top = windowCenterY + windowHeight / 2,
+      bottom = windowCenterY - windowHeight / 2;
+    addPart(0.06, 0.1, windowWidth + 0.2, frameMaterial, frameX, top, z);
+    addPart(0.06, 0.1, windowWidth + 0.2, frameMaterial, frameX, bottom, z);
+    addPart(0.06, windowHeight, 0.1, frameMaterial, frameX, windowCenterY, z - windowWidth / 2);
+    addPart(0.06, windowHeight, 0.1, frameMaterial, frameX, windowCenterY, z + windowWidth / 2);
+    addPart(0.06, windowHeight, 0.06, frameMaterial, frameX, windowCenterY, z);
+    addPart(0.06, 0.06, windowWidth, frameMaterial, frameX, windowCenterY, z);
+    addPart(
+      0.1,
+      windowHeight + 0.2,
+      0.35,
+      curtainMaterial,
+      frameX,
+      windowCenterY,
+      z - (windowWidth / 2 + 0.2)
+    );
+    addPart(
+      0.1,
+      windowHeight + 0.2,
+      0.35,
+      curtainMaterial,
+      frameX,
+      windowCenterY,
+      z + (windowWidth / 2 + 0.2)
+    );
+  }
+  // placed clear of the wardrobes and dressers standing against these walls
+  [-10, -1, 7].forEach(function (z) {
+    addWindow(-9, z);
+    addWindow(9, z);
+  });
+})();
+function dimHouseWindows(frac) {
+  var brightness = 0.3 + 0.5 * frac;
+  houseWindowMaterials.forEach(function (material) {
+    material.color.setScalar(brightness);
+  });
 }
 function reset() {
   setWorld(worldForLevel(level) === WORLDS.house);
