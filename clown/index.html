@@ -5471,6 +5471,45 @@ function lineClear(fromX, fromZ, toX, toZ) {
   }
   return true;
 }
+// line of sight: the segment against the real (unpadded) footprints of tall obstacles.
+// lineClear above uses the walking grid, padded 0.6 m, which would hide anyone standing near a wall.
+function segmentHitsBox(fromX, fromZ, toX, toZ, obstacle) {
+  var enter = 0,
+    leave = 1,
+    axes = [
+      [fromX, toX - fromX, obstacle.x0, obstacle.x1],
+      [fromZ, toZ - fromZ, obstacle.z0, obstacle.z1]
+    ];
+  for (var axisIndex = 0; axisIndex < 2; axisIndex++) {
+    var start = axes[axisIndex][0],
+      delta = axes[axisIndex][1],
+      low = axes[axisIndex][2],
+      high = axes[axisIndex][3];
+    if (Math.abs(delta) < 1e-9) {
+      if (start <= low || start >= high) return false;
+      continue;
+    }
+    var tLow = (low - start) / delta,
+      tHigh = (high - start) / delta;
+    if (tLow > tHigh) {
+      var swap = tLow;
+      tLow = tHigh;
+      tHigh = swap;
+    }
+    enter = Math.max(enter, tLow);
+    leave = Math.min(leave, tHigh);
+    if (enter >= leave) return false;
+  }
+  return true;
+}
+function sightClear(fromX, fromZ, toX, toZ) {
+  for (var obstacleIndex = 0; obstacleIndex < obstacles.length; obstacleIndex++) {
+    var obstacle = obstacles[obstacleIndex];
+    if (obstacle.h <= CLIMB_H) continue;
+    if (segmentHitsBox(fromX, fromZ, toX, toZ, obstacle)) return false;
+  }
+  return true;
+}
 function chaseDir(dx, dz, dist, dt) {
   var px = clown.position.x,
     pz = clown.position.z;
@@ -5519,7 +5558,7 @@ function seenBy(x, z, lim) {
     distance = Math.hypot(dx, dz) || 1;
   return (
     (dx * -Math.sin(yaw) + dz * -Math.cos(yaw)) / distance > lim &&
-    (!inHouse || lineClear(x, z, camera.position.x, camera.position.z))
+    (!inHouse || sightClear(x, z, camera.position.x, camera.position.z))
   );
 }
 function lungePose(pose, time) {
@@ -5549,7 +5588,7 @@ function updateClown(dt, time, lunge) {
   if (state === 'play') {
     var watched =
       seenBy(clown.position.x, clown.position.z, 0.6) &&
-      lineClear(clown.position.x, clown.position.z, camera.position.x, camera.position.z);
+      sightClear(clown.position.x, clown.position.z, camera.position.x, camera.position.z);
     if (clownState.down) {
       clownState.downT -= dt;
       if (clownState.downT <= 0) {
