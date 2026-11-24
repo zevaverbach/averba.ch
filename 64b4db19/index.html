@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How In Broad Daylight works</title>
+<style>
+:root{--sky:#b9cfdc;--ink:#1c1210;--paper:#f3ead2;--red:#b3261c;--sun:#f2c14a;--safe:#34c759;color-scheme:light}
+*{box-sizing:border-box}
+body{margin:0;background:var(--sky);color:var(--ink);font:600 16px/1.5 system-ui,"Nunito",sans-serif;padding:24px 16px 64px}
+main{max-width:860px;margin:0 auto;display:grid;gap:24px}
+h1{font:400 clamp(1.8rem,7vw,2.8rem)/1 "Arial Black",Impact,sans-serif;margin:0}
+h1 em{font-style:normal;color:var(--red)}
+h2{font:400 1.3rem/1.1 "Arial Black",Impact,sans-serif;margin:0 0 12px}
+.card{background:var(--paper);border:4px solid var(--ink);border-radius:6px;box-shadow:8px 8px 0 var(--red);padding:18px 20px;min-width:0}
+p{margin:0 0 10px}
+.sub{margin:6px 0 0}
+pre{margin:0;overflow:auto;font:13px/1.5 ui-monospace,Menlo,Consolas,monospace;background:var(--ink);color:var(--paper);padding:12px 14px;border-radius:4px}
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.box{background:#fff;border:3px solid var(--ink);border-radius:6px;padding:6px 12px;font-weight:800;font-size:.9rem}
+.box.red{background:var(--red);color:var(--paper)}
+.box.sun{background:var(--sun)}
+.box.safe{background:var(--safe)}
+.arrow{font-weight:800}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}
+.note{font-size:.85rem;opacity:.75}
+ul{margin:0;padding-left:1.1em;display:grid;gap:4px}
+.tag{display:inline-block;background:var(--ink);color:var(--paper);border-radius:4px;padding:0 6px;font-size:.78rem;font-weight:800}
+svg{width:100%;height:auto;display:block}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>In Broad <em>Daylight</em></h1>
+    <p class="sub">How the game works right now: one three.js file, a countdown, and a clown.</p>
+  </header>
+
+  <section class="card">
+    <h2>The core loop</h2>
+    <p>Survive until the clock runs out while a clown hunts you. Find the exit (yard) or the key and then the attic door (house). The sky darkens as time drains.</p>
+    <svg viewBox="0 0 760 250" role="img" aria-label="State machine: menu to play, play to transition, read, dying, night, over">
+      <defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#1c1210"/></marker></defs>
+      <g font-family="system-ui" font-weight="800" font-size="15" text-anchor="middle" stroke="#1c1210" stroke-width="3">
+        <rect x="10" y="90" width="90" height="44" rx="6" fill="#fff"/><text x="55" y="118" stroke="none" fill="#1c1210">menu</text>
+        <rect x="190" y="90" width="110" height="44" rx="6" fill="#34c759"/><text x="245" y="118" stroke="none" fill="#1c1210">play</text>
+        <rect x="190" y="10" width="110" height="44" rx="6" fill="#fff"/><text x="245" y="38" stroke="none" fill="#1c1210">read note</text>
+        <rect x="190" y="180" width="110" height="44" rx="6" fill="#fff"/><text x="245" y="208" stroke="none" fill="#1c1210">transition</text>
+        <rect x="400" y="60" width="110" height="44" rx="6" fill="#b3261c"/><text x="455" y="88" stroke="none" fill="#f3ead2">dying</text>
+        <rect x="400" y="130" width="110" height="44" rx="6" fill="#1c1210"/><text x="455" y="158" stroke="none" fill="#f3ead2">night</text>
+        <rect x="600" y="90" width="110" height="44" rx="6" fill="#f2c14a"/><text x="655" y="118" stroke="none" fill="#1c1210">over</text>
+      </g>
+      <g stroke="#1c1210" stroke-width="2.5" fill="none" marker-end="url(#a)">
+        <path d="M100 112H188"/><path d="M230 88V56"/><path d="M260 56V88"/>
+        <path d="M230 136V178"/><path d="M260 178V136"/>
+        <path d="M300 104L398 84"/><path d="M300 122L398 148"/>
+        <path d="M510 82L598 102"/><path d="M510 152L598 124"/>
+        <path d="M655 136V236H55V136" stroke-dasharray="5 4"/>
+      </g>
+      <g font-family="system-ui" font-size="12" font-weight="700" fill="#1c1210">
+        <text x="112" y="104">start</text>
+        <text x="320" y="86">caught</text><text x="318" y="152">time = 0</text>
+        <text x="330" y="236">retry the level you died on</text>
+        <text x="274" y="162">exit / stairs</text><text x="276" y="30">paper clue</text>
+      </g>
+    </svg>
+  </section>
+
+  <section class="card">
+    <h2>One frame</h2>
+    <p><span class="tag">src/30_main_loop.js</span> <code>update(dt)</code> runs this every frame while <code>state === 'play'</code>:</p>
+<pre>update(dt)
+  non-play states (dying, night, read, transition) get their own branch and return
+  batUpdate, fpUpdate        # bat, kick, party horn, first-person arms
+  timeLeft -= dt             # paused while the clown is in a stance
+  buildFlow                  # pathfinding grid toward you      (27_pathfinding)
+  updateClown                # chase, lunge, line of sight      (28_clown_ai)
+  updateFriends              # more clowns arrive, giggle creeps (29_friends_ai)
+  exit / pickup / note checks
+  clock, setDay(timeLeft / DAY)   # sky darkens                  (19_day_cycle)</pre>
+  </section>
+
+  <section class="card">
+    <h2>Levels are data</h2>
+    <p>Everything that differs between levels lives in <code>WORLDS</code> (<span class="tag">src/01_levels.js</span>). Levels alternate.</p>
+    <div class="cols">
+      <div><div class="flow"><span class="box safe">yard</span><span class="note">even levels</span></div>
+        <ul><li>1 floor, no key</li><li>4 paper clues</li><li>exit at the far end</li><li>friends walk in over the fence</li></ul></div>
+      <div><div class="flow"><span class="box red">house</span><span class="note">odd levels</span></div>
+        <ul><li>3 floors, stairs between them</li><li>key + attic door on the top floor</li><li>clown climbs the stairs 3.5 s after you arrive</li><li>friends come up the stairs</li></ul></div>
+    </div>
+    <p class="note" style="margin-top:12px"><code>worldForLevel(n) = n % 2 === 1 ? house : yard</code>. The bat and the horn (Q, stuns clowns) carry across levels.</p>
+  </section>
+
+  <section class="card">
+    <h2>Code layout</h2>
+<pre>src/   (32 modules, each under 400 lines)
+├── 00-02   setup, level data, collision
+├── 03-11   yard scene: ground, fence/house, props, balloons, neighbourhood, papers
+├── 12-16   clown: face/suit textures, parts, IK rig, poses
+├── 17-19   audio, state/blood/toast, day cycle
+├── 20      house scene (3 floors, windows)
+├── 21      game flow: reset, begin, die, nightfall, moveToNextStage
+├── 22-26   input, arms, party horn, bat + kick, render + HUD
+├── 27-29   pathfinding, clown AI, friends AI
+├── 30      main loop
+└── 31      title screen + browser-saved profiles</pre>
+  </section>
+
+  <section class="card">
+    <h2>Build and deploy</h2>
+    <div class="flow">
+      <span class="box">src/*.js</span><span class="arrow">→</span>
+      <span class="box">build.py</span><span class="arrow">→</span>
+      <span class="box">one HTML file</span><span class="arrow">→</span>
+      <span class="box">node --check</span>
+    </div>
+    <p style="margin-top:14px">Pushing to Forgejo <code>main</code> is the whole deploy:</p>
+    <div class="flow">
+      <span class="box">Forgejo main</span><span class="arrow">→</span>
+      <span class="box">push mirror</span><span class="arrow">→</span>
+      <span class="box">GitHub (private)</span><span class="arrow">→</span>
+      <span class="box sun">Actions: build.py</span><span class="arrow">→</span>
+      <span class="box safe">averba.ch/clown</span>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Where it stands</h2>
+    <ul>
+      <li>Done: 3-floor house, easier clowns, background scenery, title screen with profiles, off-box deploy.</li>
+      <li>Open: <b>#4</b> level design for levels 0 and 1, <b>#5</b> level 2 design. Both wait on Zev.</li>
+    </ul>
+  </section>
+</main>
+</body>
+</html>
