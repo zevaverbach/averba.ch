@@ -1124,7 +1124,9 @@ var leafMats = [0x9fd070, 0xffffff, 0xc8e090].map(function (color) {
   scene.add(confetti);
 })();
 // ---------- things that can be knocked over (by you or by the clown) ----------
-var bodies = [],
+// faster than this (m/s) counts as running: you barge through tables instead of stopping at them
+var RUNNING_SPEED = 5,
+  bodies = [],
   clusters = [],
   removedObs = [];
 function body(mesh, rest, options) {
@@ -1226,13 +1228,13 @@ function knockUpdate(dt, knockers) {
           knocker.feet < group.hi &&
           knocker.top > 0.1;
       else if (group.kind === 'rect') {
-        var margin = knocker.clown ? 0.25 : knocker.spd > 5 ? 0.55 : 0.2;
+        var margin = knocker.clown ? 0.25 : knocker.spd > RUNNING_SPEED ? 0.55 : 0.2;
         hit =
           Math.abs(knocker.x - group.x) < group.hw + margin &&
           Math.abs(knocker.z - group.z) < group.hd + margin &&
           knocker.feet < group.hi &&
           knocker.top > group.lo &&
-          (knocker.clown || knocker.spd > 5 || knocker.feet > 0.3);
+          (knocker.clown || knocker.spd > RUNNING_SPEED || knocker.feet > 0.3);
       } else if (group.kind === 'banner')
         hit =
           Math.abs(knocker.x - group.x) < group.hw &&
@@ -3563,39 +3565,43 @@ var pSpd = 0,
   playerVerticalSpeed = 0,
   vigEl = document.getElementById('vig'),
   introT = 0;
-var clownState = {
-  down: false,
-  downT: 0,
-  ext: 2,
-  tilt: 0,
-  vx: 0,
-  vz: 0,
-  jolt: 0,
-  blockedT: 0,
-  phase: 0,
-  giggleT: 8,
-  rollA: 0,
-  rollV: 0,
-  spin: 0,
-  crawl: false,
-  cph: 0,
-  stanceT: 0,
-  sev: 0,
-  burst: 0,
-  burstT: 4,
-  tangleT: 0,
-  grabT: 0,
-  stagT: 0,
-  hornT: 0,
-  arriveT: 0,
-  armed: false,
-  plate: 0,
-  plateT: 0,
-  plateCool: 0,
-  batKill: false,
-  everDown: false,
-  hitDone: false
-};
+// the clown at the start of every stage; reset() copies a fresh one over clownState
+function freshClownState() {
+  return {
+    down: false,
+    downT: 0,
+    ext: 2,
+    tilt: 0,
+    vx: 0,
+    vz: 0,
+    jolt: 0,
+    blockedT: 0,
+    phase: 0,
+    giggleT: 8,
+    rollA: 0,
+    rollV: 0,
+    spin: 0,
+    crawl: false,
+    cph: 0,
+    stanceT: 0,
+    sev: 0,
+    burst: 0,
+    burstT: 4,
+    tangleT: 0,
+    grabT: 0,
+    stagT: 0,
+    hornT: 0,
+    arriveT: 0,
+    armed: false,
+    plate: 0,
+    plateT: 0,
+    plateCool: 0,
+    batKill: false,
+    everDown: false,
+    hitDone: false
+  };
+}
+var clownState = freshClownState();
 function nowSeconds() {
   return performance.now() / 1000;
 }
@@ -3607,6 +3613,7 @@ var swingT = 0,
   kickCool = 0,
   kickPending = false,
   KICK_DUR = 0.45,
+  KICK_STAMINA = 0.34,
   toastTimer = 0,
   timers = [];
 var ui = {
@@ -3784,6 +3791,49 @@ function setDay(frac) {
     post.u.fear.value = fear;
   } else vigEl.style.opacity = (0.3 + 0.4 * dark).toFixed(3);
   if (inHouse) houseLight(frac);
+}
+// ---------- pickups: the bat, the horn and the attic key each glow where they lie ----------
+var PICKUP_RADIUS = 1.4;
+function glowMaterial(color, opacity) {
+  return new THREE.MeshBasicMaterial({
+    color: color,
+    transparent: true,
+    opacity: opacity,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    side: THREE.DoubleSide
+  });
+}
+// a beam of light and a ring on the ground around the item; it spins and bobs at itemHeight
+function addPickupGlow(pickup, item, color, itemHeight, bobPhase) {
+  var beam = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.28, 0.28, 9, 16, 1, true),
+    glowMaterial(color, 0.16)
+  );
+  beam.position.y = 4.5;
+  pickup.add(beam);
+  var halo = new THREE.Mesh(new THREE.RingGeometry(0.5, 0.75, 32), glowMaterial(color, 0.5));
+  halo.rotation.x = -Math.PI / 2;
+  halo.position.y = 0.04;
+  pickup.add(halo);
+  pickup.userData.item = item;
+  pickup.userData.beam = beam;
+  pickup.userData.halo = halo;
+  pickup.userData.itemHeight = itemHeight;
+  pickup.userData.bobPhase = bobPhase;
+}
+// animate the glow; true when the player is close enough to take it
+function pickupUpdate(pickup, time) {
+  var glow = pickup.userData;
+  glow.item.rotation.y = time * 1.6;
+  glow.item.position.y = glow.itemHeight + Math.sin(time * 2.4 + glow.bobPhase) * 0.1;
+  glow.beam.material.opacity = 0.13 + 0.07 * Math.sin(time * 3.1);
+  glow.halo.scale.setScalar(1 + 0.15 * Math.sin(time * 3.1));
+  return (
+    state === 'play' &&
+    Math.hypot(camera.position.x - pickup.position.x, camera.position.z - pickup.position.z) <
+      PICKUP_RADIUS
+  );
 }
 // ---------- the house upstairs: a hall with four rooms, a locked attic door at the far end ----------
 var inHouse = false,
@@ -3983,35 +4033,7 @@ keyPick.add(keyItem);
     keyItem.add(tooth);
   });
   keyItem.scale.setScalar(1.8);
-  var beam = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.28, 0.28, 9, 16, 1, true),
-    new THREE.MeshBasicMaterial({
-      color: 0xffd25a,
-      transparent: true,
-      opacity: 0.16,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-      side: THREE.DoubleSide
-    })
-  );
-  beam.position.y = 4.5;
-  keyPick.add(beam);
-  keyPick.userData.beam = beam;
-  var halo = new THREE.Mesh(
-    new THREE.RingGeometry(0.5, 0.75, 32),
-    new THREE.MeshBasicMaterial({
-      color: 0xffd25a,
-      transparent: true,
-      opacity: 0.5,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-      side: THREE.DoubleSide
-    })
-  );
-  halo.rotation.x = -Math.PI / 2;
-  halo.position.y = 0.04;
-  keyPick.add(halo);
-  keyPick.userData.halo = halo;
+  addPickupGlow(keyPick, keyItem, 0xffd25a, 0.5, 2);
 })();
 function setWorld(toHouse) {
   world = toHouse ? WORLDS.house : WORLDS.yard;
@@ -4162,31 +4184,8 @@ function reset() {
   clown.position.set(world.clownStart.x, 0, world.clownStart.z);
   clown.rotation.y = world.clownStart.facing;
   clown.visible = true;
-  clownState.down = false;
-  clownState.tilt = 0;
-  clownState.ext = 2;
-  clownState.vx = clownState.vz = 0;
-  clownState.jolt = 0;
-  clownState.blockedT = 0;
-  clownState.giggleT = 8;
-  clownState.crawl = false;
-  clownState.cph = 0;
-  clownState.stanceT = 0;
-  clownState.sev = 0;
-  clownState.burst = 0;
-  clownState.burstT = 4;
-  clownState.tangleT = 0;
-  clownState.grabT = 0;
-  clownState.stagT = 0;
-  clownState.hornT = 0;
+  Object.assign(clownState, freshClownState());
   clownState.arriveT = world.clownArrivalHold;
-  clownState.armed = false;
-  clownState.plate = 0;
-  clownState.plateT = 0;
-  clownState.plateCool = 0;
-  clownState.batKill = false;
-  clownState.everDown = false;
-  clownState.rollA = clownState.rollV = clownState.spin = 0;
   knockReset();
   resetBat();
   shakeT = 0;
@@ -4338,35 +4337,35 @@ function nightfall() {
   ui.fade.style.transition = 'opacity .2s';
   ui.fade.style.opacity = 1;
   later(function () {
-    [main]
-      .concat(
-        friends.map(function (friend) {
-          return friend.r;
-        })
-      )
-      .forEach(function (rig, i) {
-        var angle = yaw + Math.PI + (i - 1.5) * 0.62,
-          position = rig.root.position;
-        rig.root.visible = true;
-        position.set(
-          camera.position.x + Math.sin(angle) * 1.55,
-          0,
-          camera.position.z + Math.cos(angle) * 1.55
-        );
-        rig.root.rotation.y = Math.atan2(
-          camera.position.x - position.x,
-          camera.position.z - position.z
-        );
-        rig.inner.rotation.set(0, 0, 0);
-        rig.inner.position.set(0, 0, 0);
-        basePose(rig.T);
-        rig.T.hL.set(0.3, 0.05 + i * 0.05, 0.5);
-        rig.T.hR.set(-0.3, 0.12 - i * 0.03, 0.5);
-        rig.T.hroll = (i % 2 ? 1 : -1) * 0.35;
-        rig.T.grip = 0;
-        animate(rig, 1, 100);
-        setFace(rig, 'scream');
-      });
+    var rigs = [main].concat(
+      friends.map(function (friend) {
+        return friend.r;
+      })
+    );
+    // all of them in an arc behind you, however many there are
+    rigs.forEach(function (rig, i) {
+      var angle = yaw + Math.PI + (i - (rigs.length - 1) / 2) * 0.62,
+        position = rig.root.position;
+      rig.root.visible = true;
+      position.set(
+        camera.position.x + Math.sin(angle) * 1.55,
+        0,
+        camera.position.z + Math.cos(angle) * 1.55
+      );
+      rig.root.rotation.y = Math.atan2(
+        camera.position.x - position.x,
+        camera.position.z - position.z
+      );
+      rig.inner.rotation.set(0, 0, 0);
+      rig.inner.position.set(0, 0, 0);
+      basePose(rig.T);
+      rig.T.hL.set(0.3, 0.05 + i * 0.05, 0.5);
+      rig.T.hR.set(-0.3, 0.12 - i * 0.03, 0.5);
+      rig.T.hroll = (i % 2 ? 1 : -1) * 0.35;
+      rig.T.grip = 0;
+      animate(rig, 1, 100);
+      setFace(rig, 'scream');
+    });
     main.bat.visible = false;
     clownState.down = false;
     clownState.tilt = 0;
@@ -4758,39 +4757,14 @@ pickBat.position.y = 0.4;
 pickBat.rotation.z = 0.35;
 pickBat.castShadow = true;
 batPick.add(pickBat);
-var beam = new THREE.Mesh(
-  new THREE.CylinderGeometry(0.28, 0.28, 9, 16, 1, true),
-  new THREE.MeshBasicMaterial({
-    color: 0xffd35a,
-    transparent: true,
-    opacity: 0.16,
-    blending: THREE.AdditiveBlending,
-    depthWrite: false,
-    side: THREE.DoubleSide
-  })
-);
-beam.position.y = 4.5;
-batPick.add(beam);
-var halo = new THREE.Mesh(
-  new THREE.RingGeometry(0.5, 0.75, 32),
-  new THREE.MeshBasicMaterial({
-    color: 0xffd35a,
-    transparent: true,
-    opacity: 0.5,
-    blending: THREE.AdditiveBlending,
-    depthWrite: false,
-    side: THREE.DoubleSide
-  })
-);
-halo.rotation.x = -Math.PI / 2;
-halo.position.y = 0.04;
-batPick.add(halo);
+addPickupGlow(batPick, pickBat, 0xffd35a, 0.4, 0);
 // the party blowout: pick it up, then blow it (Q or the Honk button) and every clown near you stops to cover his ears
 var hasHorn = false,
   hornCool = 0,
   hornShowT = 0,
   HORN_RANGE = 15,
   HORN_STUN = 6,
+  HORN_SHOW = 0.9,
   hornBtn = document.getElementById('horn');
 hornBtn.addEventListener(
   'touchstart',
@@ -4870,33 +4844,7 @@ hornItem.scale.setScalar(2.4);
 hornItem.position.y = 0.45;
 hornItem.rotation.z = 0.35;
 hornPick.add(hornItem);
-var hbeam = new THREE.Mesh(
-  new THREE.CylinderGeometry(0.28, 0.28, 9, 16, 1, true),
-  new THREE.MeshBasicMaterial({
-    color: 0xff7ac0,
-    transparent: true,
-    opacity: 0.16,
-    blending: THREE.AdditiveBlending,
-    depthWrite: false,
-    side: THREE.DoubleSide
-  })
-);
-hbeam.position.y = 4.5;
-hornPick.add(hbeam);
-var hhalo = new THREE.Mesh(
-  new THREE.RingGeometry(0.5, 0.75, 32),
-  new THREE.MeshBasicMaterial({
-    color: 0xff7ac0,
-    transparent: true,
-    opacity: 0.5,
-    blending: THREE.AdditiveBlending,
-    depthWrite: false,
-    side: THREE.DoubleSide
-  })
-);
-hhalo.rotation.x = -Math.PI / 2;
-hhalo.position.y = 0.04;
-hornPick.add(hhalo);
+addPickupGlow(hornPick, hornItem, 0xff7ac0, 0.45, 1);
 hornPick.visible = false;
 var hornFP = hornModel();
 hornFP.position.set(0.12, -0.14, -0.34);
@@ -4995,7 +4943,7 @@ function playHorn() {
 function blowHorn() {
   if (state !== 'play' || !hasHorn || hornCool > 0 || introT > 0) return;
   hornCool = 4.5;
-  hornShowT = 0.9;
+  hornShowT = HORN_SHOW;
   playHorn();
   shakeT = Math.max(shakeT, 0.2);
   var stunnedCount = 0,
@@ -5136,38 +5084,17 @@ function knockLoose(nx, nz) {
 }
 function batUpdate(dt, time) {
   hornCool = Math.max(0, hornCool - dt);
-  if (hornPick.visible) {
-    hornItem.rotation.y = time * 1.6;
-    hornItem.position.y = 0.45 + Math.sin(time * 2.4 + 1) * 0.1;
-    hbeam.material.opacity = 0.13 + 0.07 * Math.sin(time * 3.1);
-    hhalo.scale.setScalar(1 + 0.15 * Math.sin(time * 3.1));
-    if (
-      state === 'play' &&
-      Math.hypot(camera.position.x - hornPick.position.x, camera.position.z - hornPick.position.z) <
-        1.4
-    )
-      takeHorn();
-  }
-  if (keyPick.visible) {
-    keyItem.rotation.y = time * 1.6;
-    keyItem.position.y = 0.5 + Math.sin(time * 2.4 + 2) * 0.1;
-    keyPick.userData.beam.material.opacity = 0.13 + 0.07 * Math.sin(time * 3.1);
-    keyPick.userData.halo.scale.setScalar(1 + 0.15 * Math.sin(time * 3.1));
-    if (
-      state === 'play' &&
-      Math.hypot(camera.position.x - keyPick.position.x, camera.position.z - keyPick.position.z) <
-        1.4
-    ) {
-      hasKey = true;
-      keyPick.visible = false;
-      announce('ATTIC KEY', 'The attic door is at the far end of the hall.', 3200);
-      play('thud', 0.5, 1.5);
-    }
+  if (hornPick.visible && pickupUpdate(hornPick, time)) takeHorn();
+  if (keyPick.visible && pickupUpdate(keyPick, time)) {
+    hasKey = true;
+    keyPick.visible = false;
+    announce('ATTIC KEY', 'The attic door is at the far end of the hall.', 3200);
+    play('thud', 0.5, 1.5);
   }
   if (hornShowT > 0) {
     // the blowout unrolls and curls back up
     hornShowT = Math.max(0, hornShowT - dt);
-    var progress = 1 - hornShowT / 0.9,
+    var progress = 1 - hornShowT / HORN_SHOW,
       streamer = hornFP.userData.streamer,
       extension =
         progress < 0.1
@@ -5183,18 +5110,7 @@ function batUpdate(dt, time) {
     streamer.rotation.x = Math.sin(time * 45) * 0.03 * extension;
     hornFP.position.y = -0.15 + Math.sin(progress * Math.PI) * 0.03;
   }
-  if (batPick.visible) {
-    pickBat.rotation.y = time * 1.6;
-    pickBat.position.y = 0.4 + Math.sin(time * 2.4) * 0.1;
-    beam.material.opacity = 0.13 + 0.07 * Math.sin(time * 3.1);
-    halo.scale.setScalar(1 + 0.15 * Math.sin(time * 3.1));
-    if (
-      state === 'play' &&
-      Math.hypot(camera.position.x - batPick.position.x, camera.position.z - batPick.position.z) <
-        1.4
-    )
-      takeBat();
-  }
+  if (batPick.visible && pickupUpdate(batPick, time)) takeBat();
   if (
     hasBat &&
     state === 'play' &&
@@ -5222,7 +5138,7 @@ function swing() {
 // the kick: always there, but short, slow to recover and it only buys a moment
 function kick() {
   if (state !== 'play' || introT > 0 || kickT > 0 || kickCool > 0 || swingT > 0) return;
-  if (stam < 0.34) {
+  if (stam < KICK_STAMINA) {
     if (nowSeconds() - batHintT > 1.5) {
       batHintT = nowSeconds();
       toast('Too winded to kick', 900);
@@ -5232,7 +5148,7 @@ function kick() {
   kickT = KICK_DUR;
   kickCool = 1.25;
   kickPending = true;
-  stam = Math.max(0, stam - 0.34);
+  stam = Math.max(0, stam - KICK_STAMINA);
   play('whoosh', 0.35, 1.3);
 }
 function swingOrKick() {
@@ -5262,31 +5178,43 @@ function targets(range, lim) {
 function target(range, lim) {
   return targets(range, lim)[0] || null;
 }
+// a bat hit knocks the clown or a friend down; every extra hit while he is down buys less time.
+// Returns true if this hit is the one that put him down.
+function batKnockDown(body, targetInfo) {
+  if (!body.down) {
+    body.down = true;
+    body.downT = DOWN_TIME;
+    body.ext = 2;
+    body.vx = targetInfo.nx * 3;
+    body.vz = targetInfo.nz * 3;
+    body.rollV = -batSide * 3;
+    body.spin = 0;
+    body.jolt = 1;
+    return true;
+  }
+  body.downT += body.ext;
+  body.ext *= 0.5;
+  body.vx = targetInfo.nx * 2.4;
+  body.vz = targetInfo.nz * 2.4;
+  body.rollV += -batSide * (6 + Math.random() * 3);
+  body.spin += -batSide * (2 + Math.random() * 2);
+  body.jolt = 1.6;
+  return false;
+}
+// kicking someone who is already down keeps him there a little longer, less each time
+function kickWhileDown(body, targetInfo) {
+  body.downT += body.ext * 0.4;
+  body.ext *= 0.7;
+  body.vx = targetInfo.nx * 1.5;
+  body.vz = targetInfo.nz * 1.5;
+  body.jolt = 1;
+}
 function hitFriend(friend, targetInfo) {
   // the same as the clown: he goes down, and every extra hit buys less time
   addMark(friend.r);
   friend.hitT = 0;
   friend.hornT = 0;
-  var position = friend.r.root.position;
-  if (!friend.down) {
-    friend.down = true;
-    friend.downT = DOWN_TIME;
-    friend.ext = 2;
-    friend.vx = targetInfo.nx * 3;
-    friend.vz = targetInfo.nz * 3;
-    friend.rollV = -batSide * 3;
-    friend.spin = 0;
-    friend.jolt = 1;
-    playClown('down', 0.8, 1, position);
-  } else {
-    friend.downT += friend.ext;
-    friend.ext *= 0.5;
-    friend.vx = targetInfo.nx * 2.4;
-    friend.vz = targetInfo.nz * 2.4;
-    friend.rollV += -batSide * (6 + Math.random() * 3);
-    friend.spin += -batSide * (2 + Math.random() * 2);
-    friend.jolt = 1.6;
-  }
+  if (batKnockDown(friend, targetInfo)) playClown('down', 0.8, 1, friend.r.root.position);
 }
 function hitMain(targetInfo) {
   addMark(main);
@@ -5297,26 +5225,12 @@ function hitMain(targetInfo) {
   clownState.grabT = 0;
   clownState.burst = 0;
   clownState.hornT = 0;
-  if (!clownState.down) {
-    clownState.down = true;
+  if (batKnockDown(clownState, targetInfo)) {
     clownState.everDown = true;
-    clownState.downT = DOWN_TIME;
-    clownState.ext = 2;
-    clownState.vx = targetInfo.nx * 3;
-    clownState.vz = targetInfo.nz * 3;
-    clownState.rollV = -batSide * 3;
-    clownState.spin = 0;
     flashBlood();
     toast('Down he goes', 900);
     playClown('down', 0.8, 1);
   } else {
-    clownState.downT += clownState.ext;
-    clownState.ext *= 0.5;
-    clownState.vx = targetInfo.nx * 2.4;
-    clownState.vz = targetInfo.nz * 2.4;
-    clownState.rollV += -batSide * (6 + Math.random() * 3);
-    clownState.spin += -batSide * (2 + Math.random() * 2);
-    clownState.jolt = 1.6; // each extra hit buys less time
     ui.blood.style.transition = 'none';
     ui.blood.style.opacity = 0.35;
     void ui.blood.offsetWidth;
@@ -5342,11 +5256,7 @@ function doKick() {
   if (targetInfo.f) {
     var kickedFriend = targetInfo.f;
     if (kickedFriend.down) {
-      kickedFriend.downT += kickedFriend.ext * 0.4;
-      kickedFriend.ext *= 0.7;
-      kickedFriend.vx = targetInfo.nx * 1.5;
-      kickedFriend.vz = targetInfo.nz * 1.5;
-      kickedFriend.jolt = 1;
+      kickWhileDown(kickedFriend, targetInfo);
       return;
     }
     if (kickedFriend.tilt < -0.3) return;
@@ -5358,10 +5268,7 @@ function doKick() {
   if (clownState.stanceT > 0) return;
   clownState.jolt = 1;
   if (clownState.down) {
-    clownState.downT += clownState.ext * 0.4;
-    clownState.ext *= 0.7;
-    clownState.vx = targetInfo.nx * 1.5;
-    clownState.vz = targetInfo.nz * 1.5;
+    kickWhileDown(clownState, targetInfo);
     return;
   }
   if (clownState.tilt < -0.3) return;
@@ -5599,6 +5506,38 @@ function lungePose(pose, time) {
   pose.fR.set(-0.14, 0, -0.25);
 }
 
+// he goes down like a felled tree and comes back up like a plank on a hinge, and so do his friends.
+// body is clownState or a friend, rig is its clown. Returns true the moment he is upright again.
+function fallAndGetUp(body, rig, dt) {
+  var stoodUp = false;
+  if (body.down) body.tilt += (-1.45 - body.tilt) * Math.min(1, dt * 12);
+  else if (body.tilt < 0) {
+    body.tilt = Math.min(0, body.tilt + dt * 1.9);
+    stoodUp = body.tilt === 0;
+  }
+  body.jolt = Math.max(0, body.jolt - dt * (body.down ? 1.8 : 3));
+  if (body.crawl) {
+    // only the clown crawls: he rolls onto his front first
+    var rollTarget = Math.PI + 2 * Math.PI * Math.round((body.rollA - Math.PI) / (2 * Math.PI));
+    body.rollA += (rollTarget - body.rollA) * Math.min(1, dt * 3);
+    body.rollV = 0;
+    body.spin = 0;
+  } else if (body.down) {
+    body.rollA += body.rollV * dt;
+    body.rollV *= Math.max(0, 1 - dt * 2.2);
+    rig.root.rotation.y += body.spin * dt;
+    body.spin *= Math.max(0, 1 - dt * 2.5);
+  } else {
+    if (Math.abs(body.rollA) > Math.PI * 2)
+      body.rollA -= Math.PI * 2 * Math.round(body.rollA / (Math.PI * 2));
+    body.rollA += (0 - body.rollA) * Math.min(1, dt * 4);
+    body.rollV = body.spin = 0;
+  }
+  rig.inner.rotation.set(body.tilt, body.rollA, 0);
+  rig.inner.position.y = -body.tilt * 0.2 + Math.sin(Math.min(1, body.jolt) * Math.PI) * 0.18;
+  return stoodUp;
+}
+
 function updateClown(dt, time, lunge) {
   var dx = camera.position.x - clown.position.x,
     dz = camera.position.z - clown.position.z,
@@ -5759,38 +5698,10 @@ function updateClown(dt, time, lunge) {
   clown.position.y += (groundHeight - clown.position.y) * Math.min(1, dt * 7);
   var climbing = onFeet && !lunge && (clown.position.y > 0.05 || groundHeight > 0);
 
-  // he goes down like a felled tree and comes back up like a plank on a hinge
-  if (clownState.down) clownState.tilt += (-1.45 - clownState.tilt) * Math.min(1, dt * 12);
-  else if (clownState.tilt < 0) {
-    clownState.tilt = Math.min(0, clownState.tilt + dt * 1.9);
-    if (clownState.tilt === 0) {
-      playClown('crack', 1, 0.9);
-      shakeT = Math.max(shakeT, 0.15);
-    }
+  if (fallAndGetUp(clownState, main, dt)) {
+    playClown('crack', 1, 0.9);
+    shakeT = Math.max(shakeT, 0.15);
   }
-  clownState.jolt = Math.max(0, clownState.jolt - dt * (clownState.down ? 1.8 : 3));
-  var joltLift = Math.sin(Math.min(1, clownState.jolt) * Math.PI) * 0.18;
-  if (clownState.crawl) {
-    var rollTarget =
-      Math.PI + 2 * Math.PI * Math.round((clownState.rollA - Math.PI) / (2 * Math.PI));
-    clownState.rollA += (rollTarget - clownState.rollA) * Math.min(1, dt * 3);
-    clownState.rollV = 0;
-    clownState.spin = 0;
-  } else if (clownState.down) {
-    clownState.rollA += clownState.rollV * dt;
-    clownState.rollV *= Math.max(0, 1 - dt * 2.2);
-    clown.rotation.y += clownState.spin * dt;
-    clownState.spin *= Math.max(0, 1 - dt * 2.5);
-  } else {
-    if (Math.abs(clownState.rollA) > Math.PI * 2)
-      clownState.rollA -= Math.PI * 2 * Math.round(clownState.rollA / (Math.PI * 2));
-    clownState.rollA += (0 - clownState.rollA) * Math.min(1, dt * 4);
-    clownState.rollV = clownState.spin = 0;
-  }
-  inner.rotation.x = clownState.tilt;
-  inner.rotation.y = clownState.rollA;
-  inner.rotation.z = 0;
-  inner.position.y = -clownState.tilt * 0.2 + joltLift;
 
   // pose
   var track = 0;
@@ -5918,7 +5829,8 @@ function updateClown(dt, time, lunge) {
     pose.hroll = 0.22;
     track = 1;
   }
-  if (clownState.armed && onFeet && !batting && clownState.grabT <= 0 && !lunge) {
+  // whatever else he is doing (down, getting up, lunging) the bat stays in his right hand
+  if (clownState.armed && !batting && clownState.grabT <= 0) {
     pose.grip = 1;
     pose.bB.copy(pose.hR);
     pose.bD.set(0.05, -0.55, -0.85);
@@ -6082,25 +5994,7 @@ function updateFriends(dt, time, frac) {
         playClown('low', 0.9, 1.15, position);
       }
     }
-    friend.jolt = Math.max(0, friend.jolt - dt * (friend.down ? 1.8 : 3));
-    if (friend.down) {
-      friend.tilt += (-1.45 - friend.tilt) * Math.min(1, dt * 12);
-      friend.rollA += friend.rollV * dt;
-      friend.rollV *= Math.max(0, 1 - dt * 2.2);
-      rig.root.rotation.y += friend.spin * dt;
-      friend.spin *= Math.max(0, 1 - dt * 2.5);
-    } else {
-      if (friend.tilt < 0) {
-        friend.tilt = Math.min(0, friend.tilt + dt * 1.9);
-        if (friend.tilt === 0) playClown('crack', 1, 0.9, position);
-      }
-      if (Math.abs(friend.rollA) > Math.PI * 2)
-        friend.rollA -= Math.PI * 2 * Math.round(friend.rollA / (Math.PI * 2));
-      friend.rollA += (0 - friend.rollA) * Math.min(1, dt * 4);
-      friend.rollV = friend.spin = 0;
-    }
-    rig.inner.rotation.set(friend.tilt, friend.rollA, 0);
-    rig.inner.position.y = -friend.tilt * 0.2 + Math.sin(Math.min(1, friend.jolt) * Math.PI) * 0.18;
+    if (fallAndGetUp(friend, rig, dt)) playClown('crack', 1, 0.9, position);
     friend.hornT = Math.max(0, friend.hornT - dt);
     if (friend.down || friend.tilt < -0.05) {
       var downPose = basePose(rig.T);
@@ -6309,21 +6203,22 @@ function update(dt, time) {
     playerVerticalSpeed = 0;
   }
   var grounded = pFeet <= gnd + 0.02;
+  var running = pSpd > RUNNING_SPEED;
   if (grounded && moveIn) {
     stepAcc += speed;
-    if (stepAcc > (pSpd > 5 ? 2.3 : 1.7)) {
+    if (stepAcc > (running ? 2.3 : 1.7)) {
       stepAcc = 0;
       stepK ^= 1;
-      play(stepK ? 'step1' : 'step2', pSpd > 5 ? 0.3 : 0.2, 1.05 + Math.random() * 0.15);
+      play(stepK ? 'step1' : 'step2', running ? 0.3 : 0.2, 1.05 + Math.random() * 0.15);
     }
   }
   camera.position.y =
-    1.7 + pFeet + (moveIn && grounded ? Math.sin(time * (pSpd > 5 ? 13 : 9)) * 0.04 : 0);
+    1.7 + pFeet + (moveIn && grounded ? Math.sin(time * (running ? 13 : 9)) * 0.04 : 0);
   camera.rotation.y = yaw;
   camera.rotation.x = pitch + (kickT > 0 ? 0.06 * Math.sin(Math.PI * (1 - kickT / KICK_DUR)) : 0);
   camera.rotation.z = shakeT > 0 ? (Math.random() - 0.5) * 0.06 * Math.min(1, shakeT / 0.25) : 0;
   shakeT = Math.max(0, shakeT - dt);
-  fovT = clownState.stanceT > 0 && 1 - clownState.stanceT / STANCE > 0.2 ? 58 : pSpd > 5 ? 76 : 70;
+  fovT = clownState.stanceT > 0 && 1 - clownState.stanceT / STANCE > 0.2 ? 58 : running ? 76 : 70;
   if (Math.abs(camera.fov - fovT) > 0.05) {
     camera.fov += (fovT - camera.fov) * Math.min(1, dt * 3);
     camera.updateProjectionMatrix();
