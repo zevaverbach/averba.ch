@@ -5642,8 +5642,7 @@ function updateClown(dt, time, lunge) {
           clownState.plateCool = 0.4;
         } else {
           if (dist > 1.7) {
-            clown.position.x += (dx / dist) * 1.6 * dt;
-            clown.position.z += (dz / dist) * 1.6 * dt;
+            tryMove(clown.position, (dx / dist) * 1.6 * dt, (dz / dist) * 1.6 * dt, 0.5, 0, true);
           }
           if (clownState.plateT >= 0.95) {
             clownState.plate = 2;
@@ -6187,8 +6186,8 @@ function update(dt, time) {
         awayZ = camera.position.z - killerPosition.z,
         awayDistance = Math.hypot(awayX, awayZ) || 1;
       if (awayDistance > 0.6) {
-        killerPosition.x += (awayX / awayDistance) * 1.2 * dt;
-        killerPosition.z += (awayZ / awayDistance) * 1.2 * dt;
+        var lungeStep = (1.2 * dt) / awayDistance;
+        tryMove(killerPosition, awayX * lungeStep, awayZ * lungeStep, 0.45);
       }
       killerRig.root.rotation.y = Math.atan2(awayX, awayZ);
       basePose(killerRig.T);
