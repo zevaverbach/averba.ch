@@ -18,7 +18,7 @@
 [hidden] { display: none !important; }
 html, body { height: 100%; }
 body { background: var(--sky); color: var(--ink); font-family: var(--font-body); font-weight: 600; overflow: hidden; }
-#c { display: block; width: 100%; height: 100%; }
+#game-canvas { display: block; width: 100%; height: 100%; }
 #blood { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; opacity: 0; }
 #fade {
   position: fixed; inset: 0; background: #000; opacity: 0; pointer-events: none; transition: opacity .6s;
@@ -38,7 +38,7 @@ body { background: var(--sky); color: var(--ink); font-family: var(--font-body);
   font-size: clamp(1.3rem, 4.5vw, 2.2rem); color: var(--paper); text-shadow: 0 3px 0 var(--ink); pointer-events: none; opacity: 0; transition: opacity .25s;
 }
 #cross { position: fixed; left: 50%; top: 50%; width: 6px; height: 6px; margin: -3px; border-radius: 50%; background: var(--paper); box-shadow: 0 0 0 1px var(--ink); opacity: .7; pointer-events: none; }
-#screen, #note {
+#menu-screen, #note {
   position: fixed; inset: 0; display: grid; place-items: center; overflow: auto;
   padding: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
   background: rgba(28, 18, 16, .6);
@@ -56,17 +56,17 @@ kbd { font-family: var(--font-body); font-weight: 800; background: var(--ink); c
 }
 .paper h2 { font-family: var(--font-body); font-weight: 800; font-size: .72rem; letter-spacing: .14em; text-transform: uppercase; margin: 0 0 10px; color: var(--red); }
 .paper p { font-family: var(--font-hand); font-size: 1.55rem; line-height: 32px; margin: 0 0 18px; white-space: pre-line; }
-#sndstat { position: fixed; left: max(12px, env(safe-area-inset-left, 0px)); bottom: max(8px, env(safe-area-inset-bottom, 0px)); font-size: .7rem; color: var(--paper); text-shadow: 0 1px 0 var(--ink); pointer-events: none; opacity: .7; }
-#pad { position: fixed; inset: 0; touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
-#base, #knob { position: fixed; border-radius: 50%; pointer-events: none; opacity: 0; transition: opacity .15s; }
-#base { width: 120px; height: 120px; margin: -60px 0 0 -60px; border: 4px solid var(--paper); background: rgba(28, 18, 16, .25); }
-#knob { width: 56px; height: 56px; margin: -28px 0 0 -28px; background: var(--paper); border: 4px solid var(--ink); }
+#sound-status { position: fixed; left: max(12px, env(safe-area-inset-left, 0px)); bottom: max(8px, env(safe-area-inset-bottom, 0px)); font-size: .7rem; color: var(--paper); text-shadow: 0 1px 0 var(--ink); pointer-events: none; opacity: .7; }
+#touch-pad { position: fixed; inset: 0; touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+#joystick-base, #joystick-knob { position: fixed; border-radius: 50%; pointer-events: none; opacity: 0; transition: opacity .15s; }
+#joystick-base { width: 120px; height: 120px; margin: -60px 0 0 -60px; border: 4px solid var(--paper); background: rgba(28, 18, 16, .25); }
+#joystick-knob { width: 56px; height: 56px; margin: -28px 0 0 -28px; background: var(--paper); border: 4px solid var(--ink); }
 button {
   font: inherit; font-family: var(--font-display); font-size: 1.1rem; background: var(--red); color: var(--paper);
   border: 3px solid var(--ink); border-radius: 6px; padding: 10px 22px; cursor: pointer; box-shadow: 0 4px 0 var(--ink);
 }
 @keyframes batpulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.25); box-shadow: 0 0 24px #ffd35a; } }
-#swing, #jump, #run {
+#action-button, #jump, #run {
   position: fixed; right: max(24px, env(safe-area-inset-right, 0px)); bottom: max(24px, env(safe-area-inset-bottom, 0px));
   width: 104px; height: 104px; border-radius: 50%; padding: 0; font-size: 1.2rem; touch-action: none; opacity: .85;
   -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
@@ -74,8 +74,8 @@ button {
 #jump { width: 80px; height: 80px; bottom: calc(max(24px, env(safe-area-inset-bottom, 0px)) + 124px); right: max(36px, env(safe-area-inset-right, 0px)); font-size: 1rem; }
 #horn { width: 80px; height: 80px; bottom: calc(max(24px, env(safe-area-inset-bottom, 0px)) + 124px); right: calc(max(36px, env(safe-area-inset-right, 0px)) + 96px); font-size: 1rem; touch-action: none; opacity: .85; position: fixed; border-radius: 50%; padding: 0; background: #d8479a; }
 #run { width: 80px; height: 80px; right: calc(max(24px, env(safe-area-inset-right, 0px)) + 120px); font-size: 1rem; }
-#stam { position: fixed; left: 50%; bottom: max(14px, env(safe-area-inset-bottom, 0px)); width: 140px; height: 8px; margin-left: -70px; background: var(--ink); border-radius: 5px; padding: 1px; opacity: 0; pointer-events: none; transition: opacity .3s; }
-#stf { height: 100%; width: 100%; background: var(--safe); border-radius: 4px; }
+#stamina-bar { position: fixed; left: 50%; bottom: max(14px, env(safe-area-inset-bottom, 0px)); width: 140px; height: 8px; margin-left: -70px; background: var(--ink); border-radius: 5px; padding: 1px; opacity: 0; pointer-events: none; transition: opacity .3s; }
+#stamina-fill { height: 100%; width: 100%; background: var(--safe); border-radius: 4px; }
 button:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--ink); }
 button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
 #profiles h2 { font-family: var(--font-display); font-weight: 400; font-size: 1.1rem; margin: 0 0 8px; }
@@ -91,10 +91,10 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
 #profname { flex: 1 1 9rem; min-width: 0; font: inherit; padding: 10px 12px; border: 3px solid var(--ink); border-radius: 6px; background: #fffdf6; color: var(--ink); }
 #howto { margin-top: 14px; }
 #howto summary { cursor: pointer; font-family: var(--font-display); }
-#vig { position: fixed; inset: 0; pointer-events: none; opacity: 0; background: radial-gradient(ellipse at center, rgba(0,0,0,0) 28%, rgba(0,0,0,.92) 100%); }
+#vignette { position: fixed; inset: 0; pointer-events: none; opacity: 0; background: radial-gradient(ellipse at center, rgba(0,0,0,0) 28%, rgba(0,0,0,.92) 100%); }
 </style>
 
-<canvas id="c"></canvas>
+<canvas id="game-canvas"></canvas>
 <canvas id="blood"></canvas>
 <div id="hud" hidden>
   <div id="clock">1:30</div>
@@ -103,24 +103,24 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
 </div>
 <div id="cross" hidden></div>
 <div id="toast"></div>
-<div id="pad" hidden></div>
-<div id="base"></div><div id="knob"></div>
-<button id="swing" type="button" hidden>Kick</button>
+<div id="touch-pad" hidden></div>
+<div id="joystick-base"></div><div id="joystick-knob"></div>
+<button id="action-button" type="button" hidden>Kick</button>
 <button id="jump" type="button" hidden>Jump</button>
 <button id="horn" type="button" hidden>Honk</button>
 <button id="run" type="button" hidden>Run</button>
-<div id="stam"><div id="stf"></div></div>
-<div id="sndstat"></div>
-<div id="vig"></div>
-<div id="fade"><span id="fadetxt"></span></div>
+<div id="stamina-bar"><div id="stamina-fill"></div></div>
+<div id="sound-status"></div>
+<div id="vignette"></div>
+<div id="fade"><span id="fade-text"></span></div>
 <div id="note" hidden>
   <div class="paper">
-    <h2 id="notet"></h2>
-    <p id="noteb"></p>
-    <button id="notego" type="button">Keep going</button>
+    <h2 id="note-title"></h2>
+    <p id="note-body"></p>
+    <button id="note-continue" type="button">Keep going</button>
   </div>
 </div>
-<div id="screen">
+<div id="menu-screen">
   <div class="card">
     <h1>In Broad <em>Daylight</em></h1>
     <p class="sub">A birthday party. Nobody has ever survived the night.</p>
@@ -132,7 +132,7 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
       <p id="profempty">No saved profiles in this browser yet.</p>
       <form id="profnew">
         <input id="profname" type="text" maxlength="16" placeholder="Your name" autocomplete="off" aria-label="Your name">
-        <button id="go" type="submit">Start</button>
+        <button id="start-button" type="submit">Start</button>
       </form>
     </section>
     <details id="howto"><summary>How to play</summary>
@@ -173,7 +173,7 @@ var ARENA = { x: 19, zMin: -27, zMax: 20 },
   DOOR = new THREE.Vector3(0, 0, -25);
 var isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 
-var canvas = document.getElementById('c'),
+var canvas = document.getElementById('game-canvas'),
   wantPost = !!window.WebGL2RenderingContext;
 var renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: !wantPost });
 renderer.shadowMap.enabled = true;
@@ -1654,36 +1654,39 @@ var tbl1 = table(6, 4, 5, 1.8),
     snd: 1.8
   });
 });
-var colors = [0xe8392b, 0xffc83d, 0x3a7bd5, 0xe86bb0, 0x34c759];
-for (var i = 0; i < 14; i++) {
-  var balloonX = -17 + i * 2.7,
-    balloonY = 5 + Math.sin(i * 1.7) * 0.6;
-  var partyBalloon = new THREE.Mesh(
-    new THREE.SphereGeometry(0.45, 28, 22),
-    new THREE.MeshPhongMaterial({
-      color: colors[i % colors.length],
-      shininess: 110,
-      specular: 0x777777
-    })
-  );
-  partyBalloon.scale.y = 1.2;
-  partyBalloon.position.set(balloonX, balloonY, 12 + (i % 3) * 1.5);
-  partyBalloon.castShadow = true;
-  scene.add(partyBalloon);
-  var knot = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.1, 8), partyBalloon.material);
-  knot.position.set(balloonX, balloonY - 0.55, partyBalloon.position.z);
-  knot.rotation.x = Math.PI;
-  scene.add(knot);
-  addBox(
-    0.02,
-    balloonY - 0.6,
-    0.02,
-    0xdddddd,
-    balloonX,
-    (balloonY - 0.6) / 2,
-    partyBalloon.position.z
-  );
-}
+// a row of balloons hanging over the lawn, each on a string
+(function fixedBalloonRow() {
+  var colors = [0xe8392b, 0xffc83d, 0x3a7bd5, 0xe86bb0, 0x34c759];
+  for (var i = 0; i < 14; i++) {
+    var balloonX = -17 + i * 2.7,
+      balloonY = 5 + Math.sin(i * 1.7) * 0.6;
+    var partyBalloon = new THREE.Mesh(
+      new THREE.SphereGeometry(0.45, 28, 22),
+      new THREE.MeshPhongMaterial({
+        color: colors[i % colors.length],
+        shininess: 110,
+        specular: 0x777777
+      })
+    );
+    partyBalloon.scale.y = 1.2;
+    partyBalloon.position.set(balloonX, balloonY, 12 + (i % 3) * 1.5);
+    partyBalloon.castShadow = true;
+    scene.add(partyBalloon);
+    var balloonKnot = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.1, 8), partyBalloon.material);
+    balloonKnot.position.set(balloonX, balloonY - 0.55, partyBalloon.position.z);
+    balloonKnot.rotation.x = Math.PI;
+    scene.add(balloonKnot);
+    addBox(
+      0.02,
+      balloonY - 0.6,
+      0.02,
+      0xdddddd,
+      balloonX,
+      (balloonY - 0.6) / 2,
+      partyBalloon.position.z
+    );
+  }
+})();
 (function banner() {
   var canvas = makeCanvas(1024, 160),
     context = canvas.getContext('2d');
@@ -1920,7 +1923,7 @@ function concreteTexture() {
   context.fillRect(0, 0, 2, 128);
   return canvasTexture(canvas, 1, 1);
 }
-function addFlat(width, depth, material, x, y, z) {
+function addGroundPlane(width, depth, material, x, y, z) {
   var mesh = new THREE.Mesh(new THREE.PlaneGeometry(width, depth), material);
   mesh.rotation.x = -Math.PI / 2;
   mesh.position.set(x, y, z);
@@ -1931,19 +1934,19 @@ function addFlat(width, depth, material, x, y, z) {
 var nearSidewalkZ = STREET_Z - STREET_WIDTH / 2 - 1.2;
 (function streetAndDriveway() {
   var roadMaterial = new THREE.MeshLambertMaterial({ map: asphaltTexture() });
-  addFlat(420, STREET_WIDTH, roadMaterial, 0, 0.02, STREET_Z);
+  addGroundPlane(420, STREET_WIDTH, roadMaterial, 0, 0.02, STREET_Z);
   var sidewalkMaterial = new THREE.MeshLambertMaterial({ map: concreteTexture() }),
     farSidewalkZ = STREET_Z + STREET_WIDTH / 2 + 1.2;
   sidewalkMaterial.map.repeat.set(160, 1);
-  addFlat(420, 2.4, sidewalkMaterial, 0, 0.05, nearSidewalkZ);
-  addFlat(420, 2.4, sidewalkMaterial, 0, 0.05, farSidewalkZ);
+  addGroundPlane(420, 2.4, sidewalkMaterial, 0, 0.05, nearSidewalkZ);
+  addGroundPlane(420, 2.4, sidewalkMaterial, 0, 0.05, farSidewalkZ);
   var curbMaterial = lambertMaterial(0x9a978e);
   addBox(420, 0.14, 0.2, curbMaterial, 0, 0.07, STREET_Z - STREET_WIDTH / 2).castShadow = false;
   addBox(420, 0.14, 0.2, curbMaterial, 0, 0.07, STREET_Z + STREET_WIDTH / 2).castShadow = false;
   var drivewayMaterial = new THREE.MeshLambertMaterial({ map: concreteTexture() }),
     drivewayStartZ = ARENA.zMax + 0.5;
   drivewayMaterial.map.repeat.set(2, 5);
-  addFlat(
+  addGroundPlane(
     4.6,
     nearSidewalkZ - drivewayStartZ,
     drivewayMaterial,
@@ -3411,6 +3414,8 @@ function mixLayer(name, vol, dt, smoothing, rate, cut) {
   if (cut)
     layerState.f.frequency.value += (cut - layerState.f.frequency.value) * Math.min(1, dt * 2);
 }
+// seconds until the next heartbeat; it only beats while you are scared
+var heartbeatTimer = 0;
 function audioUpdate(dt, time) {
   if (!actx) return;
   var frac = Math.max(0, timeLeft / DAY),
@@ -3457,16 +3462,16 @@ function audioUpdate(dt, time) {
   mboxRate += (musicRate - mboxRate) * Math.min(1, dt * 3);
   mixLayer('mbox', musicVolume, dt, 3, mboxRate);
   if (state === 'play' && fear > 0.25) {
-    heartT -= dt;
-    if (heartT <= 0) {
+    heartbeatTimer -= dt;
+    if (heartbeatTimer <= 0) {
       play('heart', 0.25 + 0.6 * fear);
-      heartT = 1.0 - 0.55 * fear;
+      heartbeatTimer = 1.0 - 0.55 * fear;
     }
   }
 }
 var keepAlive = null,
   decodeErr = 0,
-  sndStat = document.getElementById('sndstat');
+  soundStatusEl = document.getElementById('sound-status');
 function silentWav() {
   var sampleCount = 4000,
     bytes = new Uint8Array(44 + sampleCount),
@@ -3524,7 +3529,7 @@ function unlockAudio() {
 ['pointerdown', 'touchend', 'mousedown', 'keydown', 'click'].forEach(function (eventName) {
   addEventListener(eventName, unlockAudio, true);
 });
-function sndStatus() {
+function updateSoundStatus() {
   var totalSounds = window.SND ? Object.keys(window.SND).length : 0,
     statusText;
   if (!AudioContextClass) statusText = 'Sound: not supported here';
@@ -3539,9 +3544,9 @@ function sndStatus() {
       ' loaded' +
       (decodeErr ? ', ' + decodeErr + ' failed' : '') +
       ')';
-  sndStat.textContent = statusText;
+  soundStatusEl.textContent = statusText;
 }
-setInterval(sndStatus, 500);
+setInterval(updateSoundStatus, 500);
 // ---------- state ----------
 var yaw = 0,
   pitch = 0,
@@ -3555,15 +3560,13 @@ var yaw = 0,
   killer = null,
   stepAcc = 0,
   stepK = 0,
-  heartT = 0,
   hooks = {};
 var pSpd = 0,
-  fovT = 70,
   shakeT = 0,
   stamLock = false,
   pFeet = 0,
   playerVerticalSpeed = 0,
-  vigEl = document.getElementById('vig'),
+  vignetteEl = document.getElementById('vignette'),
   introT = 0;
 // the clown at the start of every stage; reset() copies a fresh one over clownState
 function freshClownState() {
@@ -3617,22 +3620,21 @@ var swingT = 0,
   toastTimer = 0,
   timers = [];
 var ui = {
-  screen: document.getElementById('screen'),
+  menuScreen: document.getElementById('menu-screen'),
   hud: document.getElementById('hud'),
   cross: document.getElementById('cross'),
   clock: document.getElementById('clock'),
   fill: document.getElementById('fill'),
   toast: document.getElementById('toast'),
   card: document.querySelector('.card'),
-  go: document.getElementById('go'),
   hint: document.getElementById('hint'),
   blood: document.getElementById('blood'),
   fade: document.getElementById('fade'),
-  fadetxt: document.getElementById('fadetxt'),
+  fadeText: document.getElementById('fade-text'),
   note: document.getElementById('note'),
-  notet: document.getElementById('notet'),
-  noteb: document.getElementById('noteb'),
-  notego: document.getElementById('notego')
+  noteTitle: document.getElementById('note-title'),
+  noteBody: document.getElementById('note-body'),
+  noteContinue: document.getElementById('note-continue')
 };
 
 function later(callback, delay) {
@@ -3789,8 +3791,8 @@ function setDay(frac) {
   if (post) {
     post.u.dark.value = dark;
     post.u.fear.value = fear;
-  } else vigEl.style.opacity = (0.3 + 0.4 * dark).toFixed(3);
-  if (inHouse) houseLight(frac);
+  } else vignetteEl.style.opacity = (0.3 + 0.4 * dark).toFixed(3);
+  if (isInHouse) houseLight(frac);
 }
 // ---------- pickups: the bat, the horn and the attic key each glow where they lie ----------
 var PICKUP_RADIUS = 1.4;
@@ -3836,7 +3838,7 @@ function pickupUpdate(pickup, time) {
   );
 }
 // ---------- the house upstairs: a hall with four rooms, a locked attic door at the far end ----------
-var inHouse = false,
+var isInHouse = false,
   hasKey = false,
   lockT = 0,
   atticOpen = 0;
@@ -4037,7 +4039,7 @@ keyPick.add(keyItem);
 })();
 function setWorld(toHouse) {
   world = toHouse ? WORLDS.house : WORLDS.yard;
-  inHouse = toHouse;
+  isInHouse = toHouse;
   obstacles = toHouse ? houseObs : yardObs;
   buildBlocked();
   yardG.visible = !toHouse;
@@ -4054,8 +4056,8 @@ function setWorld(toHouse) {
 }
 function showFloorFixtures() {
   // the attic door only exists on the top floor; below it there is a stairway
-  atticPivot.visible = !inHouse || onTopFloor();
-  stairsUpSign.visible = inHouse && !onTopFloor();
+  atticPivot.visible = !isInHouse || onTopFloor();
+  stairsUpSign.visible = isInHouse && !onTopFloor();
   atticOpen = 0;
   atticPivot.rotation.y = 0;
 }
@@ -4246,10 +4248,10 @@ function begin(keep) {
   state = 'play';
   ui.fade.style.transition = 'none';
   ui.fade.style.opacity = 0;
-  ui.fadetxt.textContent = '';
+  ui.fadeText.textContent = '';
   ui.blood.style.transition = 'none';
   ui.blood.style.opacity = 0;
-  ui.screen.hidden = true;
+  ui.menuScreen.hidden = true;
   ui.note.hidden = true;
   ui.hud.hidden = false;
   ui.cross.hidden = false;
@@ -4273,21 +4275,21 @@ function begin(keep) {
   }
 }
 
-function showCard(title, sub, btn) {
+function showCard(title, sub, buttonLabel) {
   ui.card.innerHTML =
     '<h1>' +
     title +
     '</h1><p class="sub">' +
     sub +
-    '</p><button id="go" type="button">' +
-    btn +
+    '</p><button id="retry-button" type="button">' +
+    buttonLabel +
     '</button>';
-  ui.screen.hidden = false;
-  var button = document.getElementById('go');
-  button.onclick = function () {
+  ui.menuScreen.hidden = false;
+  var retryButton = document.getElementById('retry-button');
+  retryButton.onclick = function () {
     begin(true);
   };
-  button.focus();
+  retryButton.focus();
 }
 
 function die(killedBy) {
@@ -4384,7 +4386,7 @@ function nightfall() {
 // "Level 1 \u00b7 floor 2 of 3": which part of the game you are in
 function stageLabel() {
   return (
-    'Level ' + level + (inHouse ? ' \u00b7 floor ' + (floorNo + 1) + ' of ' + world.floors : '')
+    'Level ' + level + (isInHouse ? ' \u00b7 floor ' + (floorNo + 1) + ' of ' + world.floors : '')
   );
 }
 
@@ -4419,7 +4421,7 @@ function moveToNextStage(nextLevel) {
       hasBat = true;
       batPick.visible = false;
       batP.set(0.3, -1.4, -0.5);
-      btnLabel();
+      updateActionButtonLabel();
     }
     if (playerHasHorn) {
       hasHorn = true;
@@ -4430,11 +4432,11 @@ function moveToNextStage(nextLevel) {
       if (wasOn) spawnFriend(friends[index]);
     });
     introT = 0;
-    ui.fadetxt.textContent = stageLabel();
+    ui.fadeText.textContent = stageLabel();
   }, 700);
   later(function () {
     ui.fade.style.opacity = 0;
-    ui.fadetxt.textContent = '';
+    ui.fadeText.textContent = '';
     state = 'play';
     touchUi(true);
     try {
@@ -4459,11 +4461,11 @@ function openNote(clueIndex) {
   try {
     document.exitPointerLock();
   } catch (error) {}
-  ui.notet.textContent =
+  ui.noteTitle.textContent =
     CLUES[clueIndex].t + ' (' + clueGot.filter(Boolean).length + ' of ' + CLUES.length + ')';
-  ui.noteb.textContent = CLUES[clueIndex].b;
+  ui.noteBody.textContent = CLUES[clueIndex].b;
   ui.note.hidden = false;
-  ui.notego.focus();
+  ui.noteContinue.focus();
   play('thud', 0.25, 2.2);
 }
 function closeNote() {
@@ -4475,8 +4477,8 @@ function closeNote() {
     canvas.requestPointerLock();
   } catch (error) {}
 }
-ui.notego.onclick = closeNote;
-ui.notego.addEventListener('mousedown', function (event) {
+ui.noteContinue.onclick = closeNote;
+ui.noteContinue.addEventListener('mousedown', function (event) {
   event.stopPropagation();
 });
 addEventListener('keydown', function (event) {
@@ -4509,18 +4511,18 @@ addEventListener('mousedown', function (event) {
   else swingOrKick();
 });
 
-// touch controls: floating stick on the left, drag-to-look on the right, Swing button
-var touchPad = document.getElementById('pad'),
-  swingBtn = document.getElementById('swing'),
+// touch controls: floating stick on the left, drag-to-look on the right, action button (swing or kick)
+var touchPad = document.getElementById('touch-pad'),
+  actionBtn = document.getElementById('action-button'),
   jumpBtn = document.getElementById('jump'),
   jumpReq = false,
   runHeld = false,
   stam = 1,
-  stamEl = document.getElementById('stam'),
-  stfEl = document.getElementById('stf'),
+  staminaBarEl = document.getElementById('stamina-bar'),
+  staminaFillEl = document.getElementById('stamina-fill'),
   runBtn = document.getElementById('run');
-var base = document.getElementById('base'),
-  knob = document.getElementById('knob');
+var joystickBase = document.getElementById('joystick-base'),
+  joystickKnob = document.getElementById('joystick-knob');
 var tMove = { x: 0, z: 0 },
   stickId = null,
   stickO = null,
@@ -4532,7 +4534,7 @@ if (isTouch) {
   document.querySelector('.kb').hidden = true;
 }
 function stickShow(visible) {
-  base.style.opacity = knob.style.opacity = visible ? 1 : 0;
+  joystickBase.style.opacity = joystickKnob.style.opacity = visible ? 1 : 0;
 }
 touchPad.addEventListener(
   'touchstart',
@@ -4542,8 +4544,8 @@ touchPad.addEventListener(
       if (touch.clientX < innerWidth * 0.45 && stickId === null) {
         stickId = touch.identifier;
         stickO = { x: touch.clientX, y: touch.clientY };
-        base.style.left = knob.style.left = touch.clientX + 'px';
-        base.style.top = knob.style.top = touch.clientY + 'px';
+        joystickBase.style.left = joystickKnob.style.left = touch.clientX + 'px';
+        joystickBase.style.top = joystickKnob.style.top = touch.clientY + 'px';
         stickShow(true);
       } else if (lookId === null) {
         lookId = touch.identifier;
@@ -4565,8 +4567,8 @@ touchPad.addEventListener(
           scale = Math.min(distance, STICK_R) / distance;
         tMove.x = (dx * scale) / STICK_R;
         tMove.z = (-dy * scale) / STICK_R;
-        knob.style.left = stickO.x + dx * scale + 'px';
-        knob.style.top = stickO.y + dy * scale + 'px';
+        joystickKnob.style.left = stickO.x + dx * scale + 'px';
+        joystickKnob.style.top = stickO.y + dy * scale + 'px';
       } else if (touch.identifier === lookId) {
         yaw -= (touch.clientX - lookP.x) * 0.006;
         pitch -= (touch.clientY - lookP.y) * 0.006;
@@ -4590,7 +4592,7 @@ function touchEnd(event) {
 }
 touchPad.addEventListener('touchend', touchEnd, { passive: false });
 touchPad.addEventListener('touchcancel', touchEnd, { passive: false });
-swingBtn.addEventListener(
+actionBtn.addEventListener(
   'touchstart',
   function (event) {
     event.preventDefault();
@@ -4598,10 +4600,10 @@ swingBtn.addEventListener(
   },
   { passive: false }
 );
-swingBtn.addEventListener('mousedown', function (event) {
+actionBtn.addEventListener('mousedown', function (event) {
   event.stopPropagation();
 });
-swingBtn.addEventListener('click', function () {
+actionBtn.addEventListener('click', function () {
   if (!isTouch) swingOrKick();
 });
 jumpBtn.addEventListener(
@@ -4644,7 +4646,7 @@ addEventListener('mouseup', function () {
 });
 function touchUi(active) {
   touchPad.hidden = !(active && isTouch);
-  swingBtn.hidden = !(active && isTouch);
+  actionBtn.hidden = !(active && isTouch);
   jumpBtn.hidden = runBtn.hidden = !(active && isTouch);
   hornBtn.hidden = !(active && isTouch && hasHorn);
   if (!active) runHeld = false;
@@ -4746,18 +4748,6 @@ function fpUpdate(dt) {
     place(legFp, armScratchB.set(0.16, -0.98, 0.1), armScratchA);
   }
 }
-
-// the bat has to be found: it glows somewhere on the lawn, and the clown can snatch it
-var hasBat = false,
-  batHintT = 0;
-var batPick = new THREE.Group();
-scene.add(batPick);
-var pickBat = new THREE.Mesh(batGeo, batMat);
-pickBat.position.y = 0.4;
-pickBat.rotation.z = 0.35;
-pickBat.castShadow = true;
-batPick.add(pickBat);
-addPickupGlow(batPick, pickBat, 0xffd35a, 0.4, 0);
 // the party blowout: pick it up, then blow it (Q or the Honk button) and every clown near you stops to cover his ears
 var hasHorn = false,
   hornCool = 0,
@@ -4972,8 +4962,20 @@ function blowHorn() {
   });
   toast(stunnedCount ? 'HONK! They cover their ears' : 'HONK!', 1000);
 }
-function btnLabel() {
-  swingBtn.textContent = hasBat ? 'Swing' : 'Kick';
+// the bat has to be found: it glows somewhere on the lawn, and the clown can snatch it
+var hasBat = false,
+  batHintT = 0;
+var batPick = new THREE.Group();
+scene.add(batPick);
+var pickBat = new THREE.Mesh(batGeo, batMat);
+pickBat.position.y = 0.4;
+pickBat.rotation.z = 0.35;
+pickBat.castShadow = true;
+batPick.add(pickBat);
+addPickupGlow(batPick, pickBat, 0xffd35a, 0.4, 0);
+
+function updateActionButtonLabel() {
+  actionBtn.textContent = hasBat ? 'Swing' : 'Kick';
 }
 function placeBat(x, z) {
   batPick.position.set(x, 0, z);
@@ -5002,7 +5004,7 @@ function resetBat() {
     keyPick.position.set(keySpot[0], 0, keySpot[1]);
     keyPick.visible = true;
   } else keyPick.visible = false;
-  btnLabel();
+  updateActionButtonLabel();
   hornUi();
 }
 var foundEl = document.createElement('div'),
@@ -5036,7 +5038,7 @@ function takeBat() {
   hasBat = true;
   batPick.visible = false;
   batP.set(0.3, -1.4, -0.5);
-  btnLabel();
+  updateActionButtonLabel();
   announce(
     'YOU HAVE THE BAT',
     isTouch
@@ -5045,7 +5047,7 @@ function takeBat() {
     3200
   );
   play('thud', 0.5, 1.7);
-  if (isTouch) swingBtn.style.animation = 'batpulse .6s 6';
+  if (isTouch) actionBtn.style.animation = 'batpulse .6s 6';
 }
 function loseBat() {
   hasBat = false;
@@ -5056,7 +5058,7 @@ function loseBat() {
   shakeT = 0.4;
   swingT = 0;
   hitPending = false;
-  btnLabel();
+  updateActionButtonLabel();
   announce(
     'HE TOOK THE BAT',
     isTouch
@@ -5157,7 +5159,7 @@ function swingOrKick() {
 }
 
 // everyone in front of you and in reach, nearest first: the clown, and any of his friends
-function targets(range, lim) {
+function targets(range, minFacingCosine) {
   var fx = -Math.sin(yaw),
     fz = -Math.cos(yaw),
     out = [];
@@ -5167,7 +5169,7 @@ function targets(range, lim) {
       dx = position.x - camera.position.x,
       dz = position.z - camera.position.z,
       distance = Math.hypot(dx, dz) || 1;
-    if (distance > range || (dx * fx + dz * fz) / distance < lim) return;
+    if (distance > range || (dx * fx + dz * fz) / distance < minFacingCosine) return;
     out.push({ f: friend, d: distance, nx: dx / distance, nz: dz / distance });
   });
   out.sort(function (first, second) {
@@ -5175,8 +5177,8 @@ function targets(range, lim) {
   });
   return out;
 }
-function target(range, lim) {
-  return targets(range, lim)[0] || null;
+function target(range, minFacingCosine) {
+  return targets(range, minFacingCosine)[0] || null;
 }
 // a bat hit knocks the clown or a friend down; every extra hit while he is down buys less time.
 // Returns true if this hit is the one that put him down.
@@ -5486,15 +5488,22 @@ function flowDir(px, pz, dx, dz, dist) {
   return { x: tx / targetLength, z: tz / targetLength };
 }
 
-function seenBy(x, z, lim) {
+// is (x, z) in front of the player, within the cone where the facing cosine exceeds minFacingCosine,
+// and (in the house) not behind a wall?
+function isSeenByPlayer(x, z, minFacingCosine) {
   var dx = x - camera.position.x,
     dz = z - camera.position.z,
     distance = Math.hypot(dx, dz) || 1;
   return (
-    (dx * -Math.sin(yaw) + dz * -Math.cos(yaw)) / distance > lim &&
-    (!inHouse || sightClear(x, z, camera.position.x, camera.position.z))
+    (dx * -Math.sin(yaw) + dz * -Math.cos(yaw)) / distance > minFacingCosine &&
+    (!isInHouse || sightClear(x, z, camera.position.x, camera.position.z))
   );
 }
+// the clown's gait for the frame: drives the step sounds and the walk/run poses
+var GAIT_STILL = 0,
+  GAIT_WALK = 1,
+  GAIT_RUN = 2;
+
 function lungePose(pose, time) {
   pose.hL.set(0.22, 0.3 + Math.sin(time * 25) * 0.04, 0.68);
   pose.hR.set(-0.22, 0.3 - Math.sin(time * 23) * 0.04, 0.68);
@@ -5543,7 +5552,7 @@ function updateClown(dt, time, lunge) {
     dz = camera.position.z - clown.position.z,
     dist = Math.hypot(dx, dz) || 1,
     phi = Math.atan2(dx, dz);
-  var gait = 0,
+  var gait = GAIT_STILL,
     face = 'evil',
     rate = 14,
     pose = basePose(main.T),
@@ -5553,7 +5562,7 @@ function updateClown(dt, time, lunge) {
   var onFeet = !clownState.down && clownState.tilt > -0.05;
   if (state === 'play') {
     var watched =
-      seenBy(clown.position.x, clown.position.z, 0.6) &&
+      isSeenByPlayer(clown.position.x, clown.position.z, 0.6) &&
       sightClear(clown.position.x, clown.position.z, camera.position.x, camera.position.z);
     if (clownState.down) {
       clownState.downT -= dt;
@@ -5664,7 +5673,7 @@ function updateClown(dt, time, lunge) {
         clown.position.y > 0.05 || groundAt(clown.position.x, clown.position.z, 9, 0.5) > 0;
       if (onObs) csp *= 0.55;
       tryMove(clown.position, dir.x * csp * dt, dir.z * csp * dt, 0.5, 0, true);
-      gait = run ? 2 : 1;
+      gait = run ? GAIT_RUN : GAIT_WALK;
       clownState.phase += (dt * Math.PI * csp) / (run ? 1.04 : 0.68);
     }
     if (!clownState.down && introT <= 0 && clownState.stanceT <= 0) {
@@ -5675,8 +5684,8 @@ function updateClown(dt, time, lunge) {
         else playClown('low', 0.9, 0.9 + Math.random() * 0.2);
       }
     }
-    if (gait && Math.floor(clownState.phase / Math.PI) !== step0 && introT <= 0)
-      playClown(step0 % 2 ? 'step1' : 'step2', gait === 2 ? 1 : 0.6, 0.8);
+    if (gait !== GAIT_STILL && Math.floor(clownState.phase / Math.PI) !== step0 && introT <= 0)
+      playClown(step0 % 2 ? 'step1' : 'step2', gait === GAIT_RUN ? 1 : 0.6, 0.8);
   } else if (lunge && killer === main && dist > 0.6) {
     tryMove(clown.position, (dx / dist) * 1.2 * dt, (dz / dist) * 1.2 * dt, 0.3);
   }
@@ -5807,19 +5816,19 @@ function updateClown(dt, time, lunge) {
     face = 'scream';
   } else if (introT > 0 && state === 'play') {
     // the entertainer: a balloon and a wave
-    if (gait) poseWalk(pose, clownState.phase, 0.22, 0.08, 0.1, 0.02);
+    if (gait !== GAIT_STILL) poseWalk(pose, clownState.phase, 0.22, 0.08, 0.1, 0.02);
     pose.hL.set(0.45, 0, 0.25);
     pose.hR.set(-0.52, 0.66, 0.12 + Math.sin(time * 8) * 0.02);
     pose.hR.x += Math.sin(time * 8) * 0.14;
     pose.eR.set(-1, -0.5, 0);
     pose.hroll = Math.sin(time * 2) * 0.12;
     face = 'friendly';
-  } else if (gait === 2) {
+  } else if (gait === GAIT_RUN) {
     poseRun(pose, clownState.phase);
     if (dist < 9 || clownState.burst > 0) face = 'scream';
     track = 0.6;
     rate = 18;
-  } else if (gait === 1) {
+  } else if (gait === GAIT_WALK) {
     poseWalk(pose, clownState.phase, 0.34, 0.1, 0.05, 0.04);
     pose.hroll = 0.3;
     track = 1;
@@ -5900,7 +5909,7 @@ function spawnFriend(friend) {
         z = Math.max(ARENA.zMin + 1, Math.min(ARENA.zMax, camera.position.z - 16 + slot * 7)),
         distance = Math.hypot(x - camera.position.x, z - camera.position.z);
       var score =
-        (seenBy(x, z, 0.35) ? -100 : 0) +
+        (isSeenByPlayer(x, z, 0.35) ? -100 : 0) +
         (distance < 9 ? -50 : 0) -
         Math.abs(distance - 15) -
         (z > camera.position.z ? 6 : 0) +
@@ -5970,7 +5979,7 @@ function updateFriends(dt, time, frac) {
     var dx = camera.position.x - position.x,
       dz = camera.position.z - position.z,
       distance = Math.hypot(dx, dz) || 1,
-      seen = seenBy(position.x, position.z, 0.5);
+      seen = isSeenByPlayer(position.x, position.z, 0.5);
     if (seen && !friend.spotted && distance < 34) {
       friend.spotted = true;
       play('sting', 0.5, 0.75 + i * 0.08);
@@ -6026,7 +6035,7 @@ function updateFriends(dt, time, frac) {
       var walkSpeed = 2.0 + 0.7 * (1 - frac) + Math.min(0.3, level * 0.1),
         stepBefore = Math.floor(friend.ph / Math.PI);
       var stepDirection = { x: dx / distance, z: dz / distance };
-      if (inHouse && !lineClear(position.x, position.z, camera.position.x, camera.position.z))
+      if (isInHouse && !lineClear(position.x, position.z, camera.position.x, camera.position.z))
         stepDirection = flowDir(position.x, position.z, dx, dz, distance);
       position.x += stepDirection.x * walkSpeed * dt;
       position.z += stepDirection.z * walkSpeed * dt;
@@ -6053,7 +6062,7 @@ function updateFriends(dt, time, frac) {
   return { caught: caught, close: Math.max(0, Math.min(1, close)) };
 }
 function update(dt, time) {
-  if (atticOpen > 0 && inHouse) {
+  if (atticOpen > 0 && isInHouse) {
     atticOpen = Math.min(1, atticOpen + dt * 1.6);
     atticPivot.rotation.y = -1.7 * atticOpen;
     if (state === 'transition') {
@@ -6073,7 +6082,7 @@ function update(dt, time) {
       clueObject.userData.p.position.y = 0.85 + Math.sin(time * 2 + clueIndex) * 0.06;
     }
   });
-  if (state !== 'play' && !inHouse) knockUpdate(dt, []);
+  if (state !== 'play' && !isInHouse) knockUpdate(dt, []);
   if (state === 'read') return;
   if (state === 'night') {
     yaw += dt * 1.5;
@@ -6182,8 +6191,8 @@ function update(dt, time) {
   if (introT > 0 || clownState.stanceT > 0) speed = 0; // rooted to the spot until he has finished turning
   speed *= 1 - 0.4 * Math.max(0, -moveZ / inputLength); // backing away from him is slow
   pSpd = dt > 0 ? speed / dt : 0;
-  stfEl.style.width = stam * 100 + '%';
-  stamEl.style.opacity = stam < 0.995 ? 1 : 0;
+  staminaFillEl.style.width = stam * 100 + '%';
+  staminaBarEl.style.opacity = stam < 0.995 ? 1 : 0;
   tryMove(
     camera.position,
     ((fx * moveZ + rightX * moveX) / inputLength) * speed,
@@ -6218,14 +6227,15 @@ function update(dt, time) {
   camera.rotation.x = pitch + (kickT > 0 ? 0.06 * Math.sin(Math.PI * (1 - kickT / KICK_DUR)) : 0);
   camera.rotation.z = shakeT > 0 ? (Math.random() - 0.5) * 0.06 * Math.min(1, shakeT / 0.25) : 0;
   shakeT = Math.max(0, shakeT - dt);
-  fovT = clownState.stanceT > 0 && 1 - clownState.stanceT / STANCE > 0.2 ? 58 : running ? 76 : 70;
-  if (Math.abs(camera.fov - fovT) > 0.05) {
-    camera.fov += (fovT - camera.fov) * Math.min(1, dt * 3);
+  var targetFov =
+    clownState.stanceT > 0 && 1 - clownState.stanceT / STANCE > 0.2 ? 58 : running ? 76 : 70;
+  if (Math.abs(camera.fov - targetFov) > 0.05) {
+    camera.fov += (targetFov - camera.fov) * Math.min(1, dt * 3);
     camera.updateProjectionMatrix();
   }
 
   var frac = Math.max(0, timeLeft / DAY);
-  if (inHouse && (flowT -= dt) <= 0) {
+  if (isInHouse && (flowT -= dt) <= 0) {
     flowT = 0.2;
     buildFlow();
   }
@@ -6235,7 +6245,7 @@ function update(dt, time) {
       introT > 0 || clownState.stanceT > 0
         ? { caught: null, close: 0 }
         : updateFriends(dt, time, frac);
-  if (!inHouse)
+  if (!isInHouse)
     knockUpdate(dt, [
       {
         x: camera.position.x,
@@ -6302,7 +6312,7 @@ function update(dt, time) {
   if (introT <= 0)
     ui.hint.textContent =
       (hasBat ? 'Bat in hand' : clownState.armed ? 'HE HAS THE BAT' : 'Find the bat') +
-      (!inHouse
+      (!isInHouse
         ? ' · door '
         : !onTopFloor()
           ? ' · stairs up '
@@ -6311,7 +6321,7 @@ function update(dt, time) {
             : ' · find the key · attic door ') +
       Math.round(doorDistance) +
       ' m' +
-      (inHouse ? '' : ' · papers ' + clueGot.filter(Boolean).length + '/' + CLUES.length);
+      (isInHouse ? '' : ' · papers ' + clueGot.filter(Boolean).length + '/' + CLUES.length);
 
   if (introT > 0) return;
   if (!hooks.bot && world.hasPapers)
@@ -6331,9 +6341,9 @@ function update(dt, time) {
     toast('Locked. Find the key.', 1400);
     play('thud', 0.4, 0.8);
   }
-  if (doorDistance < doorR && inHouse && !onTopFloor()) climbStairs();
+  if (doorDistance < doorR && isInHouse && !onTopFloor()) climbStairs();
   else if (doorDistance < doorR && (!keyNeeded() || hasKey)) {
-    if (inHouse) atticOpen = 0.001;
+    if (isInHouse) atticOpen = 0.001;
     escape();
   } else if (clownState.batKill) {
     clownState.batKill = false;
@@ -6389,8 +6399,8 @@ window.__bbd = {
   setHorn: function (value) {
     hasHorn = value;
   },
-  inHouse: function () {
-    return inHouse;
+  isInHouse: function () {
+    return isInHouse;
   },
   floor: function () {
     return floorNo;
