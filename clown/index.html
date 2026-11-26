@@ -168,7 +168,9 @@ var DAY = 90,
   DOWN_TIME = 7,
   STANCE = 3.2,
   HIT_RANGE = 3.2,
-  KICK_RANGE = 2.1;
+  KICK_RANGE = 2.1,
+  PLAYER_EYE_HEIGHT = 1.1, // you are a kid: eye level is below the clowns' chests
+  PLAYER_HEIGHT = 1.25;
 var ARENA = { x: 19, zMin: -27, zMax: 20 },
   DOOR = new THREE.Vector3(0, 0, -25);
 var isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
@@ -4175,7 +4177,7 @@ function dimHouseWindows(frac) {
 }
 function reset() {
   setWorld(worldForLevel(level) === WORLDS.house);
-  camera.position.set(world.playerStart.x, 1.7, world.playerStart.z);
+  camera.position.set(world.playerStart.x, PLAYER_EYE_HEIGHT, world.playerStart.z);
   pFeet = playerVerticalSpeed = 0;
   stam = 1;
   stamLock = false;
@@ -6222,7 +6224,9 @@ function update(dt, time) {
     }
   }
   camera.position.y =
-    1.7 + pFeet + (moveIn && grounded ? Math.sin(time * (running ? 13 : 9)) * 0.04 : 0);
+    PLAYER_EYE_HEIGHT +
+    pFeet +
+    (moveIn && grounded ? Math.sin(time * (running ? 13 : 9)) * 0.04 : 0);
   camera.rotation.y = yaw;
   camera.rotation.x = pitch + (kickT > 0 ? 0.06 * Math.sin(Math.PI * (1 - kickT / KICK_DUR)) : 0);
   camera.rotation.z = shakeT > 0 ? (Math.random() - 0.5) * 0.06 * Math.min(1, shakeT / 0.25) : 0;
@@ -6251,7 +6255,7 @@ function update(dt, time) {
         x: camera.position.x,
         z: camera.position.z,
         feet: pFeet,
-        top: pFeet + 1.85,
+        top: pFeet + PLAYER_HEIGHT,
         spd: pSpd,
         clown: false
       },
