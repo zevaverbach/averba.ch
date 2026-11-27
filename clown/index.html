@@ -76,6 +76,12 @@ button {
 #run { width: 80px; height: 80px; right: calc(max(24px, env(safe-area-inset-right, 0px)) + 120px); font-size: 1rem; }
 #stamina-bar { position: fixed; left: 50%; bottom: max(14px, env(safe-area-inset-bottom, 0px)); width: 140px; height: 8px; margin-left: -70px; background: var(--ink); border-radius: 5px; padding: 1px; opacity: 0; pointer-events: none; transition: opacity .3s; }
 #stamina-fill { height: 100%; width: 100%; background: var(--safe); border-radius: 4px; }
+#noise-bar { position: fixed; left: 50%; bottom: 30px; width: 140px; height: 8px; margin-left: -70px; background: var(--ink); border-radius: 5px; padding: 1px; pointer-events: none; }
+#noise-bar::before { content: 'noise'; position: absolute; right: 100%; top: -5px; margin-right: 8px; font: 700 11px var(--font-body); color: var(--paper); text-shadow: 0 1px 2px #000; }
+#noise-fill { height: 100%; width: 0; background: #8fc07a; border-radius: 4px; }
+#interact-prompt { position: fixed; left: 0; right: 0; top: calc(50% + 26px); text-align: center; pointer-events: none; opacity: 0; transition: opacity .15s; font: 800 15px var(--font-body); color: var(--paper); text-shadow: 0 1px 3px #000, 0 0 8px #000; z-index: 20; }
+#sneak { width: 80px; height: 80px; right: 144px; bottom: 120px; font-size: 1rem; position: fixed; border-radius: 50%; padding: 0; touch-action: none; opacity: .85; background: #4a5a7a; }
+#sneak.on { background: #8fc07a; color: var(--ink); }
 button:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--ink); }
 button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
 #profiles h2 { font-family: var(--font-display); font-weight: 400; font-size: 1.1rem; margin: 0 0 8px; }
@@ -110,6 +116,8 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
 <button id="horn" type="button" hidden>Honk</button>
 <button id="run" type="button" hidden>Run</button>
 <div id="stamina-bar"><div id="stamina-fill"></div></div>
+<div id="noise-bar" hidden><div id="noise-fill"></div></div>
+<button id="sneak" type="button" hidden>Sneak</button>
 <div id="sound-status"></div>
 <div id="vignette"></div>
 <div id="fade"><span id="fade-text"></span></div>
@@ -144,11 +152,12 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
       <li><b>Find the bat</b> (golden glow). A hit can't hurt him. He only gets dizzy, and for less time with every hit.</li>
       <li>No bat? <b>Kick.</b> You have to get close, and it only staggers him. If he has the bat, a kick knocks it out of his hands.</li>
       <li>He has friends. They move when you are not looking. A bat knocks down every one of them in front of you.</li>
-      <li>Then the house: find the key, then open the attic door at the end of the hall. They follow you in.</li>
+      <li>Then the house: get out by the front door, or by the ladder at the window across the broken nursery floor (take a running jump). There is a knife in one of the kitchen cabinets: one stab and a clown stays down. Two clowns wait by the front door, and more come in at the back.</li>
+      <li>In the house they listen. Running is loud, sneaking is quiet, and every door you open or close takes a second and can be heard.</li>
       <li>Somewhere there is a <b>party blowout</b>. Pick it up, then blow it (<kbd>Q</kbd>): every clown near you stops and covers his ears for a few seconds.</li>
       <li>Pick up the papers. Somebody was here before you.</li>
-      <li class="kb"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move, mouse looks, click swings the bat (or kicks without it), <kbd>F</kbd> or right-click always kicks, <kbd>Space</kbd> jumps, hold <kbd>Shift</kbd> to run.</li>
-      <li class="tc" hidden>Touch: drag on the left to move, drag on the right to look. The big button swings the bat, or kicks when you have none.</li>
+      <li class="kb"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move, mouse looks, click swings the bat (or kicks without it), <kbd>F</kbd> or right-click always kicks, <kbd>Space</kbd> jumps, hold <kbd>Shift</kbd> to run, hold <kbd>C</kbd> to sneak, <kbd>E</kbd> opens and closes doors.</li>
+      <li class="tc" hidden>Touch: drag on the left to move, drag on the right to look. The big button swings the bat, or kicks when you have none; next to a door it opens or closes it. Sneak is a toggle.</li>
     </ul>
     </details>
     <p class="credit">Best with headphones. Birds, cicadas, laughs, screams and hits are public domain and CC0 recordings from Wikimedia Commons. The music box, the drone and the stingers were generated for this game.</p>
@@ -326,19 +335,19 @@ function canvasTexture(canvas, repeatX, repeatY) {
   return texture;
 }
 // ---------- level design: everything that differs between the levels is data here ----------
-// A world says where the player and the clown start, where the exit is, where pickups may lie and how friends arrive.
+// A world says where the player and the clown start, where the exits are, where pickups may lie and how friends arrive.
 // Level 0 is the tutorial (the party in the garden, no clowns), level 1 the garden again (Happy Birthday!),
 // level 2 the house, and from there garden and house alternate (see worldForLevel).
 var WORLDS = {
   tutorial: {
     name: 'tutorial',
     title: 'Tutorial',
-    playerStart: { x: 0, z: 17 },
+    playerStart: { x: 0, z: 17, yaw: 0 },
     clownStart: { x: 0, z: -27.4, facing: 0 },
     clownArrivalHold: 0,
-    exit: { x: 0, z: -25, radius: 3 },
-    floors: 1,
-    needsKey: false,
+    dayLength: 90, // the tutorial has no clock, but the light still goes by it
+    exits: [{ x: 0, z: -25, radius: 3, label: 'back garden door' }],
+    pits: [],
     hasPapers: false,
     hasClown: false,
     hasHorn: false,
@@ -348,12 +357,12 @@ var WORLDS = {
   yard: {
     name: 'yard',
     title: 'Happy Birthday!',
-    playerStart: { x: 4.6, z: 6.6 }, // at the cake, for the song
+    playerStart: { x: 4.6, z: 6.6, yaw: 0 }, // at the cake, for the song
     clownStart: { x: 0, z: -27.4, facing: 0 }, // behind the back garden door
     clownArrivalHold: 0,
-    exit: { x: 0, z: -25, radius: 3 },
-    floors: 1,
-    needsKey: false,
+    dayLength: 90, // seconds until dark
+    exits: [{ x: 0, z: -25, radius: 3, label: 'back garden door' }],
+    pits: [],
     hasPapers: true,
     hasClown: true,
     hasHorn: true,
@@ -366,50 +375,73 @@ var WORLDS = {
     ],
     friendEntrances: null // friends walk in from outside the fence
   },
+  // One floor, hard to find your way around (the plan is drawn in src/20_house_level_scene.js).
+  // You start in the storeroom at the back. Two ways out: the front door, or the ladder outside the
+  // nursery window, across the hole where the nursery floor fell through (fall in and you start again).
   house: {
     name: 'house',
     title: '',
     hasClown: true,
     hasHorn: true,
-    playerStart: { x: 0, z: 7 },
-    clownStart: { x: 0, z: 18.6, facing: Math.PI },
-    clownArrivalHold: 3.5, // seconds he takes to climb the stairs after you arrive
-    floors: 3, // ground, middle and top; the attic door is on the top one
-
-    exit: { x: 0, z: -13.3, radius: 2.4 },
-    needsKey: true,
+    playerStart: { x: -2.5, z: -21.5, yaw: Math.PI },
+    // he waits by the front door with another (src/29b_house_clowns.js); more come in at the back door
+    clownStart: { x: -2.2, z: 13.6, facing: Math.PI },
+    clownArrivalHold: 0,
+    dayLength: 60,
+    exits: [
+      { x: 0, z: 16.75, radius: 0.85, label: 'front door' },
+      { x: -15.2, z: -22.6, radius: 0.9, label: 'ladder' }
+    ],
+    // [x0, x1, z0, z1]: holes in the floor
+    pits: [
+      [-16, -4, -19.5, -10.5],
+      [-14, -4, -24, -19.5]
+    ],
     hasPapers: false,
     pickupSpots: [
-      [-5, 7],
-      [-4.5, 0.5],
-      [-5.5, -10],
-      [-4, -4.5],
-      [5, 6],
-      [7, 4],
-      [5, -8],
-      [6.5, -3.5],
-      [0, -9],
-      [0, 3]
+      [-10.5, 10.5],
+      [10, 9],
+      [-12.5, -1.5],
+      [-3, 2],
+      [7, 5],
+      [9.5, -12],
+      [-6, -6],
+      [2, 6]
     ],
-    friendEntrances: [
-      [0, 18.4],
-      [-0.8, 19],
-      [0.8, 19],
-      [0, 16.8]
-    ] // they come up the stairs
+    friendEntrances: null // no friends in the house: it has clowns of its own
   }
 };
 var world = WORLDS.tutorial;
-var floorNo = 0; // which floor of the house you are on (0 = ground); always 0 in the yard
-function onTopFloor() {
-  return floorNo >= world.floors - 1;
-}
-function keyNeeded() {
-  return world.needsKey && onTopFloor();
-} // only the attic door is locked
 function worldForLevel(levelNumber) {
   if (levelNumber === 0) return WORLDS.tutorial;
   return levelNumber % 2 === 1 ? WORLDS.yard : WORLDS.house;
+}
+// the exit nearest to you, and how far it is
+function nearestExit() {
+  var best = null,
+    bestDistance = 1e9;
+  world.exits.forEach(function (exit) {
+    var distance = Math.hypot(camera.position.x - exit.x, camera.position.z - exit.z);
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      best = exit;
+    }
+  });
+  return { exit: best, distance: bestDistance };
+}
+// is (x, z) over a hole in the floor, more than margin from any floor? (holes may adjoin each other)
+function inPit(x, z, margin) {
+  function overAHole(pointX, pointZ) {
+    return world.pits.some(function (pit) {
+      return pointX > pit[0] && pointX < pit[1] && pointZ > pit[2] && pointZ < pit[3];
+    });
+  }
+  return (
+    overAHole(x - margin, z - margin) &&
+    overAHole(x + margin, z - margin) &&
+    overAHole(x - margin, z + margin) &&
+    overAHole(x + margin, z + margin)
+  );
 }
 // ---------- obstacles ----------
 var obstacles = [],
@@ -443,10 +475,12 @@ function groundAt(x, z, feet, radius) {
   }
   return highest;
 }
-function resolve(position, radius, feet, climb) {
+// climb: walk through anything low enough to clamber over; canFall: holes in the floor are no wall (the player)
+function resolve(position, radius, feet, climb, canFall) {
   for (var i = 0; i < obstacles.length; i++) {
     var obstacle = obstacles[i];
-    if (feet >= obstacle.h - 0.05 || (climb && obstacle.h <= CLIMB_H)) continue;
+    if (feet >= obstacle.h - 0.05 || (climb && obstacle.h <= CLIMB_H) || (canFall && obstacle.pit))
+      continue;
     if (
       position.x > obstacle.x0 - radius &&
       position.x < obstacle.x1 + radius &&
@@ -467,13 +501,13 @@ function resolve(position, radius, feet, climb) {
   }
   return false;
 }
-function tryMove(position, moveX, moveZ, radius, feet, climb) {
+function tryMove(position, moveX, moveZ, radius, feet, climb, canFall) {
   var hit = false;
   feet = feet || 0;
   position.x += moveX;
-  if (resolve(position, radius, feet, climb)) hit = true;
+  if (resolve(position, radius, feet, climb, canFall)) hit = true;
   position.z += moveZ;
-  if (resolve(position, radius, feet, climb)) hit = true;
+  if (resolve(position, radius, feet, climb, canFall)) hit = true;
   position.x = Math.max(-ARENA.x + 0.3, Math.min(ARENA.x - 0.3, position.x));
   position.z = Math.max(ARENA.zMin, Math.min(ARENA.zMax, position.z));
   return hit;
@@ -3616,6 +3650,7 @@ var pSpd = 0,
 function freshClownState() {
   return {
     down: false,
+    dead: false, // stabbed in the house: down for good
     downT: 0,
     ext: 2,
     tilt: 0,
@@ -3880,36 +3915,296 @@ function pickupUpdate(pickup, time) {
       PICKUP_RADIUS
   );
 }
-// ---------- the house upstairs: a hall with four rooms, a locked attic door at the far end ----------
+// ---------- doors and cabinets in the house ----------
+// Opening or closing one takes DOOR_SWING_TIME, for you and for the clowns, and every swing is a noise.
+// A door is a wall (for walking and for seeing) until it is DOOR_PASSABLE open. Clowns open doors in their way.
+var DOOR_SWING_TIME = 1,
+  DOOR_PASSABLE = 0.85,
+  INTERACT_RANGE = 1.9,
+  DOOR_HEIGHT = 2.1;
+var doors = [],
+  interactTarget = null,
+  doorLockedToastT = 0;
+
+// options: x0, z0 (the hinge), along ('x' or 'z': the way the closed leaf runs from the hinge), width,
+// height, bottom, swing (1 or -1: which way it opens), color, kind ('door' or 'cabinet'), label,
+// locked (a message for the player; clowns open it anyway), wall (true: it blocks the doorway), open (start open)
+function addSwingingDoor(options) {
+  var height = options.height || DOOR_HEIGHT,
+    bottom = options.bottom || 0,
+    pivot = new THREE.Group(),
+    leaf = new THREE.Mesh(
+      new THREE.BoxGeometry(options.width, height, options.thickness || 0.08),
+      lambertMaterial(options.color || 0xd8cfbf)
+    ),
+    knob = new THREE.Mesh(
+      new THREE.SphereGeometry(0.045, 10, 8),
+      new THREE.MeshPhongMaterial({ color: 0xc8a040, shininess: 80 })
+    );
+  pivot.position.set(options.x0, bottom, options.z0);
+  pivot.rotation.y = options.along === 'z' ? -Math.PI / 2 : 0;
+  leaf.position.set(options.width / 2, height / 2, 0);
+  knob.position.set(options.width - 0.12, Math.min(1.0, height * 0.6), 0.06 * (options.swing || 1));
+  pivot.add(leaf);
+  pivot.add(knob);
+  houseG.add(pivot);
+  var alongX = options.along === 'z' ? 0 : 1,
+    alongZ = options.along === 'z' ? 1 : 0,
+    door = {
+      kind: options.kind || 'door',
+      label: options.label || (options.kind === 'cabinet' ? 'cabinet' : 'door'),
+      pivot: pivot,
+      leaf: leaf,
+      baseYaw: pivot.rotation.y,
+      swing: options.swing || 1,
+      x: options.x0 + (alongX * options.width) / 2,
+      z: options.z0 + (alongZ * options.width) / 2,
+      y: bottom + height / 2,
+      locked: options.locked || null,
+      startsOpen: !!options.open,
+      open: 0,
+      target: 0,
+      onOpened: options.onOpened || null,
+      obstacle: null
+    };
+  if (options.wall) {
+    var halfX = alongX ? options.width / 2 : 0.15,
+      halfZ = alongZ ? options.width / 2 : 0.15;
+    door.obstacle = {
+      x0: door.x - halfX,
+      x1: door.x + halfX,
+      z0: door.z - halfZ,
+      z1: door.z + halfZ,
+      h: 3.6,
+      door: true
+    };
+    houseObs.push(door.obstacle);
+  }
+  doors.push(door);
+  return door;
+}
+function setDoorOpenAmount(door, amount) {
+  door.open = amount;
+  var eased = amount * amount * (3 - 2 * amount);
+  door.pivot.rotation.y = door.baseYaw + door.swing * eased * (Math.PI / 2) * 0.95;
+  if (door.obstacle) door.obstacle.h = amount >= DOOR_PASSABLE ? 0 : 3.6;
+}
+function resetDoors() {
+  doors.forEach(function (door) {
+    door.target = door.startsOpen ? 1 : 0;
+    setDoorOpenAmount(door, door.target);
+  });
+}
+// start a door moving towards open (1) or shut (0). byPlayer: the noise counts, and locks apply
+function moveDoor(door, target, byPlayer) {
+  if (door.target === target) return;
+  door.target = target;
+  playClown(
+    'door',
+    door.kind === 'cabinet' ? 0.35 : 0.6,
+    door.kind === 'cabinet' ? 1.6 : 1.15,
+    door
+  );
+  if (byPlayer)
+    makeNoise(door.x, door.z, door.kind === 'cabinet' ? CABINET_NOISE : DOOR_NOISE, door.obstacle);
+}
+function updateDoors(dt) {
+  doors.forEach(function (door) {
+    if (door.open === door.target) return;
+    var step = dt / DOOR_SWING_TIME,
+      amount =
+        door.target > door.open
+          ? Math.min(door.target, door.open + step)
+          : Math.max(door.target, door.open - step);
+    setDoorOpenAmount(door, amount);
+    if (amount === 1 && door.onOpened) door.onOpened(door);
+  });
+}
+// the door or cabinet you are facing and close enough to use, if any
+function findInteractTarget() {
+  var fx = -Math.sin(yaw),
+    fz = -Math.cos(yaw),
+    best = null,
+    bestScore = 0;
+  if (!isInHouse || state !== 'play') return null;
+  doors.forEach(function (door) {
+    var dx = door.x - camera.position.x,
+      dz = door.z - camera.position.z,
+      distance = Math.hypot(dx, dz) || 0.01,
+      facing = (dx * fx + dz * fz) / distance;
+    if (distance > INTERACT_RANGE || facing < 0.45) return;
+    var score = facing - distance * 0.3 + 1;
+    if (score > bestScore) {
+      bestScore = score;
+      best = door;
+    }
+  });
+  return best;
+}
+function interact() {
+  if (state !== 'play' || !interactTarget) return false;
+  var door = interactTarget;
+  if (door.locked && door.target === 0) {
+    if (nowSeconds() - doorLockedToastT > 1.5) {
+      doorLockedToastT = nowSeconds();
+      toast(door.locked, 1800);
+      play('thud', 0.35, 0.8);
+      makeNoise(door.x, door.z, CABINET_NOISE, door.obstacle);
+    }
+    return true;
+  }
+  moveDoor(door, door.target > 0 ? 0 : 1, true);
+  return true;
+}
+// a clown about to walk into a closed door stops and opens it; true while he waits for it to swing open
+function clownWaitsAtDoor(position, direction) {
+  for (var i = 0; i < doors.length; i++) {
+    var door = doors[i];
+    if (!door.obstacle || door.open >= DOOR_PASSABLE) continue;
+    var dx = door.x - position.x,
+      dz = door.z - position.z,
+      distance = Math.hypot(dx, dz) || 0.01;
+    if (distance > 1.3 || (dx * direction.x + dz * direction.z) / distance < 0.2) continue;
+    moveDoor(door, 1, false);
+    return true;
+  }
+  return false;
+}
+// what the action button and the prompt under the crosshair say about the door in front of you
+var interactPromptEl = document.createElement('div');
+interactPromptEl.id = 'interact-prompt';
+document.body.appendChild(interactPromptEl);
+function updateInteractPrompt() {
+  interactTarget = findInteractTarget();
+  var text = '';
+  if (interactTarget)
+    text = (interactTarget.target > 0 ? 'Close ' : 'Open ') + interactTarget.label;
+  interactPromptEl.textContent = text ? (isTouch ? text : 'E · ' + text) : '';
+  interactPromptEl.style.opacity = text ? 1 : 0;
+  if (isTouch && interactTarget)
+    actionBtn.textContent = interactTarget.target > 0 ? 'Close' : 'Open';
+  else if (isTouch) updateActionButtonLabel();
+}
+// ---------- the house: one floor of rooms, corridors and doors that is hard to find your way around ----------
+// The plan (x across, z down; the front door is at the bottom, z = 16):
+//
+//   z=-24  +------------------+-----------------+-------------+
+//          | nursery: the     |  storeroom      |  mudroom    |   back door (clowns) at x=12
+//          | floor fell in;   |  (you start     |             |
+//          | ladder at the    |   here)         |             |
+//          | window (exit)    |                 |             |
+//   z=-8   +------+-----------+-----+-----------+-------------+
+//          |      | corridor that   |  kitchen (the knife is   |
+//          | bed- | doubles back    |  in one of the cabinets  |
+//          | room | three times     |  along the east wall)    |
+//   z=8    +------+---+---------+---+----+---------------------+
+//          | living   |  hall           |  dining              |
+//   z=16   +----------+--front door-----+----------------------+
+//         x=-16      x=-5      x=0     x=5                    x=16
 var isInHouse = false,
-  hasKey = false,
-  lockT = 0,
-  atticOpen = 0;
+  HOUSE_WALL_HEIGHT = 3.2;
 var houseG = new THREE.Group();
 houseG.visible = false;
 scene.add(houseG);
-var atticPivot = new THREE.Group(),
-  stairsUpSign = null;
+var houseMaterials = {
+  wall: lambertMaterial(0x6e5d4a),
+  baseboard: lambertMaterial(0x2a1f16),
+  wood: lambertMaterial(0x4a3322),
+  dark: lambertMaterial(0x140e0a),
+  black: new THREE.MeshBasicMaterial({ color: 0x000000 })
+};
+var houseCeiling = null;
+// a box in the house; obstacleHeight (if given) makes it something you bump into, or climb if it is low
+function addHouseBox(width, height, depth, material, x, y, z, obstacleHeight) {
+  var mesh = new THREE.Mesh(
+    new THREE.BoxGeometry(width, height, depth),
+    typeof material === 'number' ? lambertMaterial(material) : material
+  );
+  mesh.position.set(x, y, z);
+  houseG.add(mesh);
+  if (obstacleHeight)
+    houseObs.push({
+      x0: x - width / 2,
+      x1: x + width / 2,
+      z0: z - depth / 2,
+      z1: z + depth / 2,
+      h: obstacleHeight
+    });
+  return mesh;
+}
+// furniture standing on the floor, as tall as it looks
+function addFurniture(x, z, width, depth, height, color) {
+  return addHouseBox(width, height, depth, color, x, height / 2, z, height);
+}
+function addWallSegment(x0, z0, x1, z1) {
+  var cx = (x0 + x1) / 2,
+    cz = (z0 + z1) / 2,
+    width = Math.abs(x1 - x0) || 0.3,
+    depth = Math.abs(z1 - z0) || 0.3;
+  addHouseBox(
+    width,
+    HOUSE_WALL_HEIGHT,
+    depth,
+    houseMaterials.wall,
+    cx,
+    HOUSE_WALL_HEIGHT / 2,
+    cz,
+    3.6
+  );
+  addHouseBox(width + 0.06, 0.22, depth + 0.06, houseMaterials.baseboard, cx, 0.11, cz);
+}
+// a wall along x = coordinate (axis 'x') or z = coordinate (axis 'z') from start to end, with doorway gaps
+function addWall(axis, coordinate, start, end, gaps) {
+  var points = [start];
+  gaps.forEach(function (gap) {
+    points.push(gap[0], gap[1]);
+  });
+  points.push(end);
+  for (var pointIndex = 0; pointIndex < points.length; pointIndex += 2)
+    if (points[pointIndex + 1] - points[pointIndex] > 0.01) {
+      if (axis === 'x')
+        addWallSegment(coordinate, points[pointIndex], coordinate, points[pointIndex + 1]);
+      else addWallSegment(points[pointIndex], coordinate, points[pointIndex + 1], coordinate);
+    }
+  var headerHeight = HOUSE_WALL_HEIGHT - DOOR_HEIGHT;
+  gaps.forEach(function (gap) {
+    var middle = (gap[0] + gap[1]) / 2,
+      length = gap[1] - gap[0],
+      headerY = DOOR_HEIGHT + headerHeight / 2;
+    if (axis === 'x')
+      addHouseBox(0.3, headerHeight, length, houseMaterials.wall, coordinate, headerY, middle);
+    else addHouseBox(length, headerHeight, 0.3, houseMaterials.wall, middle, headerY, coordinate);
+  });
+}
+// a door in a doorway gap of a wall built with addWall; swing 1 opens it towards -z (or +x in an 'x' wall)
+function addDoorway(axis, coordinate, gap, swing, options) {
+  var inXWall = axis === 'x';
+  return addSwingingDoor(
+    Object.assign(
+      {
+        x0: inXWall ? coordinate : gap[0],
+        z0: inXWall ? gap[0] : coordinate,
+        along: inXWall ? 'z' : 'x',
+        width: gap[1] - gap[0],
+        swing: swing,
+        wall: true
+      },
+      options || {}
+    )
+  );
+}
+function addFloor(x0, x1, z0, z1, floorCanvas) {
+  var floor = new THREE.Mesh(
+    new THREE.PlaneGeometry(x1 - x0, z1 - z0),
+    new THREE.MeshLambertMaterial({ map: canvasTexture(floorCanvas, (x1 - x0) / 2, (z1 - z0) / 2) })
+  );
+  floor.rotation.x = -Math.PI / 2;
+  floor.position.set((x0 + x1) / 2, 0, (z0 + z1) / 2);
+  houseG.add(floor);
+}
+var frontDoor = null,
+  backDoor = null;
 (function buildHouse() {
-  var wallHeight = 3.2,
-    wallMaterial = lambertMaterial(0x6e5d4a),
-    baseboardMaterial = lambertMaterial(0x2a1f16),
-    woodMaterial = lambertMaterial(0x4a3322),
-    blackMaterial = new THREE.MeshBasicMaterial({ color: 0x000000 });
-  function addHouseBox(width, height, depth, material, x, y, z, obsH) {
-    var mesh = new THREE.Mesh(new THREE.BoxGeometry(width, height, depth), material);
-    mesh.position.set(x, y, z);
-    houseG.add(mesh);
-    if (obsH)
-      houseObs.push({
-        x0: x - width / 2,
-        x1: x + width / 2,
-        z0: z - depth / 2,
-        z1: z + depth / 2,
-        h: obsH
-      });
-    return mesh;
-  }
   var floorCanvas = makeCanvas(256, 256),
     floorContext = floorCanvas.getContext('2d');
   floorContext.fillStyle = '#3b2a1c';
@@ -3921,164 +4216,74 @@ var atticPivot = new THREE.Group(),
     floorContext.fillStyle = 'rgba(0,0,0,.55)';
     floorContext.fillRect((i * 91) % 256, i * 32, 2, 32);
   }
-  var floor = new THREE.Mesh(
-    new THREE.PlaneGeometry(18, 34),
-    new THREE.MeshLambertMaterial({ map: canvasTexture(floorCanvas, 9, 17) })
-  );
-  floor.rotation.x = -Math.PI / 2;
-  floor.position.set(0, 0, 3);
-  houseG.add(floor);
-  var ceil = new THREE.Mesh(new THREE.PlaneGeometry(18, 34), lambertMaterial(0x2a2420));
-  ceil.rotation.x = Math.PI / 2;
-  ceil.position.set(0, wallHeight, 3);
-  houseG.add(ceil);
-  var rug = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 30), lambertMaterial(0x5a1a1a));
-  rug.rotation.x = -Math.PI / 2;
-  rug.position.set(0, 0.012, 3);
-  houseG.add(rug);
-  function addWallSegment(x0, z0, x1, z1) {
-    var cx = (x0 + x1) / 2,
-      cz = (z0 + z1) / 2,
-      width = Math.abs(x1 - x0) || 0.3,
-      depth = Math.abs(z1 - z0) || 0.3;
-    addHouseBox(width, wallHeight, depth, wallMaterial, cx, wallHeight / 2, cz, 3.6);
-    addHouseBox(width + 0.06, 0.22, depth + 0.06, baseboardMaterial, cx, 0.11, cz);
-  }
-  function addWall(axis, coordinate, start, end, gaps) {
-    var pts = [start];
-    gaps.forEach(function (gap) {
-      pts.push(gap[0], gap[1]);
-    });
-    pts.push(end);
-    for (var pointIndex = 0; pointIndex < pts.length; pointIndex += 2)
-      if (pts[pointIndex + 1] - pts[pointIndex] > 0.01) {
-        if (axis === 'x')
-          addWallSegment(coordinate, pts[pointIndex], coordinate, pts[pointIndex + 1]);
-        else addWallSegment(pts[pointIndex], coordinate, pts[pointIndex + 1], coordinate);
-      }
-    gaps.forEach(function (gap) {
-      var middle = (gap[0] + gap[1]) / 2,
-        length = gap[1] - gap[0];
-      if (axis === 'x') addHouseBox(0.3, 1.1, length, wallMaterial, coordinate, 2.65, middle);
-      else addHouseBox(length, 1.1, 0.3, wallMaterial, middle, 2.65, coordinate);
-    });
-  }
-  addWall('z', -14, -9, 9, [[-0.55, 0.55]]);
-  addWall('x', -9, -14, 12, []);
-  addWall('x', 9, -14, 12, []);
-  addWall('z', 12, -9, -1.5, []);
-  addWall('z', 12, 1.5, 9, []);
-  addWall('x', -1.5, -14, 20, [
-    [-7, -5],
-    [5.5, 7.5]
+  // the floor everywhere except the nursery, where only a strip by the doors and a ledge by the window are left
+  addFloor(-16, 16, -8, 16, floorCanvas);
+  addFloor(-4, 16, -24, -8, floorCanvas);
+  addFloor(-16, -4, -10.5, -8, floorCanvas);
+  addFloor(-16, -14, -24, -19.5, floorCanvas);
+  houseCeiling = new THREE.Mesh(new THREE.PlaneGeometry(32, 40), lambertMaterial(0x2a2420));
+  houseCeiling.rotation.x = Math.PI / 2;
+  houseCeiling.position.set(0, HOUSE_WALL_HEIGHT, -4);
+  houseG.add(houseCeiling);
+  // outer walls
+  addWall('z', 16, -16, 16, [[-0.7, 0.7]]);
+  addWall('z', -24, -16, 16, [[11.3, 12.7]]);
+  addWall('x', -16, -24, 16, []);
+  addWall('x', 16, -24, 16, []);
+  // the front rooms: living room, hall, dining room
+  addWall('x', -5, 8, 16, [[12, 13.4]]);
+  addWall('x', 5, 8, 16, [[9, 11]]); // an open arch, no door
+  addWall('z', 8, -16, 16, [
+    [-14, -12.6],
+    [-0.7, 0.7],
+    [12, 13.4]
   ]);
-  addWall('x', 1.5, -14, 20, [
-    [-4, -2],
-    [7, 9]
+  // the middle: bedroom, the corridor that doubles back on itself, kitchen
+  addWall('x', -8, -8, 8, [[-6, -4.6]]);
+  addWall('x', 4, -8, 8, [[-2, -0.6]]);
+  addWall('z', 4, -8, 1.6, []);
+  addWall('z', 0, -5.6, 4, []);
+  addWall('z', -4, -8, 4, [[2.6, 4]]);
+  // the back: nursery, storeroom, mudroom
+  addWall('z', -8, -16, 16, [
+    [-12, -10.6],
+    [-6, -4.6],
+    [0.4, 1.8],
+    [12, 13.4]
   ]);
-  addWall('z', -3, -9, -1.5, [[-6, -4]]);
-  addWall('z', 2, 1.5, 9, [[5, 7]]);
-  // the stairwell: a rail, and steps going down into the dark
-  addHouseBox(3, 1, 0.12, woodMaterial, 0, 0.5, 19.7, 1.4);
-  [-1.4, 1.4].forEach(function (px) {
-    addHouseBox(0.14, 1.2, 0.14, baseboardMaterial, px, 0.6, 19.7);
+  addWall('x', -4, -24, -8, []);
+  addWall('x', 6, -24, -8, [[-14, -12.6]]);
+  // the doors: all shut but two
+  frontDoor = addDoorway('z', 16, [-0.7, 0.7], 1, { color: 0x7a2a22, label: 'front door' });
+  backDoor = addDoorway('z', -24, [11.3, 12.7], -1, {
+    color: 0x4a5a4a,
+    label: 'back door',
+    locked: 'It will not open. Something is leaning on it from outside.'
   });
-  for (var stepIndex = 0; stepIndex < 5; stepIndex++)
-    addHouseBox(3, 0.2, 0.6, woodMaterial, 0, -0.1 - stepIndex * 0.45, 20.4 + stepIndex * 0.6);
-  function addFurniture(x, z, width, depth, height, col, visibleHeight) {
-    return addHouseBox(
-      width,
-      visibleHeight || height,
-      depth,
-      lambertMaterial(col),
-      x,
-      (visibleHeight || height) / 2,
-      z,
-      Math.max(height, 1.4)
-    );
-  }
-  addFurniture(-7.6, 9.5, 2.0, 3.0, 1.4, 0x5a3a3a, 0.7);
-  addHouseBox(2.0, 1.5, 0.15, woodMaterial, -7.6, 0.75, 11.05);
-  addHouseBox(1.2, 0.18, 0.5, lambertMaterial(0xcfc8b8), -7.6, 0.8, 10.4);
-  addFurniture(-8.45, 3, 0.9, 2.0, 2.2, 0x3b2a1c);
-  addFurniture(-4, 11.6, 2.0, 0.7, 1.4, 0x4a3322, 1.0);
-  addFurniture(-7.8, -12.2, 1.2, 2.0, 1.4, 0x8a7a62, 1.1);
-  addFurniture(-4, -13.6, 2.4, 0.6, 2.2, 0x3b2a1c);
-  addFurniture(-8.5, -5, 0.8, 1.4, 1.4, 0x5a2a2a, 0.8);
-  addFurniture(7.8, 10.4, 1.4, 2.8, 1.4, 0xcfc8bc, 0.8);
-  addFurniture(4, 11.6, 1.6, 0.6, 1.4, 0x6c6a62, 1.0);
-  addFurniture(6.5, -13.1, 3.0, 1.0, 1.4, 0x4a3322, 1.0);
-  addFurniture(8.6, -6, 0.6, 3.0, 2.2, 0x3b2a1c);
-  addFurniture(3, 0.6, 1.2, 1.2, 1.4, 0x4a2a2a, 0.9);
-  // the attic door, with a lock, and a black stairway behind it
-  addHouseBox(1.1, 2.1, 0.1, blackMaterial, 0, 1.05, -16.2);
-  for (var j = 0; j < 4; j++)
-    addHouseBox(1.0, 0.3 * (j + 1), 0.4, woodMaterial, 0, 0.15 * (j + 1), -14.35 - j * 0.4);
-  addHouseBox(0.1, 2.2, 0.22, baseboardMaterial, -0.6, 1.1, -14.0);
-  addHouseBox(0.1, 2.2, 0.22, baseboardMaterial, 0.6, 1.1, -14.0);
-  addHouseBox(1.3, 0.1, 0.22, baseboardMaterial, 0, 2.15, -14.0);
-  // on the floors below the top, the same doorway is an open stairway up, marked with a sign
-  var upCanvas = makeCanvas(128, 48),
-    upCtx = upCanvas.getContext('2d');
-  upCtx.fillStyle = '#2a1f16';
-  upCtx.fillRect(0, 0, 128, 48);
-  upCtx.fillStyle = '#d9c9a0';
-  upCtx.font = 'bold 28px serif';
-  upCtx.textAlign = 'center';
-  upCtx.fillText('UP', 64, 34);
-  stairsUpSign = new THREE.Mesh(
-    new THREE.PlaneGeometry(0.8, 0.3),
-    new THREE.MeshBasicMaterial({ map: canvasTexture(upCanvas) })
+  addDoorway('x', -5, [12, 13.4], -1);
+  addDoorway('z', 8, [-14, -12.6], 1);
+  addDoorway('z', 8, [-0.7, 0.7], 1);
+  addDoorway('z', 8, [12, 13.4], 1, { open: true });
+  addDoorway('x', -8, [-6, -4.6], 1, { open: true });
+  addDoorway('x', 4, [-2, -0.6], 1);
+  addDoorway('z', -4, [2.6, 4], 1);
+  addDoorway('z', -8, [-12, -10.6], 1);
+  addDoorway('z', -8, [-6, -4.6], 1);
+  addDoorway('z', -8, [0.4, 1.8], 1);
+  addDoorway('z', -8, [12, 13.4], 1);
+  addDoorway('x', 6, [-14, -12.6], 1);
+  // outside the front door: daylight and the street; outside the back door: nothing you can see
+  var porchView = new THREE.Mesh(
+    new THREE.PlaneGeometry(4, 3.2),
+    new THREE.MeshBasicMaterial({ map: neighbourhoodViewTexture() })
   );
-  stairsUpSign.position.set(0, 2.65, -13.84);
-  houseG.add(stairsUpSign);
-  atticPivot.position.set(-0.55, 0, -13.95);
-  houseG.add(atticPivot);
-  var doorLeaf = new THREE.Mesh(new THREE.BoxGeometry(1.1, 2.1, 0.1), lambertMaterial(0xe8e2d4));
-  doorLeaf.position.set(0.55, 1.05, 0);
-  atticPivot.add(doorLeaf);
-  var gold = new THREE.MeshPhongMaterial({ color: 0xf0c040, shininess: 80 });
-  var knob = new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 8), gold);
-  knob.position.set(0.95, 1.0, 0.09);
-  atticPivot.add(knob);
-  var lock = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.16, 0.06), gold);
-  lock.position.set(0.95, 0.85, 0.08);
-  atticPivot.add(lock);
-  var plateCanvas = makeCanvas(128, 48),
-    plateContext = plateCanvas.getContext('2d');
-  plateContext.fillStyle = '#2a1f16';
-  plateContext.fillRect(0, 0, 128, 48);
-  plateContext.fillStyle = '#d9c9a0';
-  plateContext.font = 'bold 28px serif';
-  plateContext.textAlign = 'center';
-  plateContext.fillText('ATTIC', 64, 34);
-  var plate = new THREE.Mesh(
-    new THREE.PlaneGeometry(0.5, 0.19),
-    new THREE.MeshBasicMaterial({ map: canvasTexture(plateCanvas) })
-  );
-  plate.position.set(0.55, 1.75, 0.056);
-  atticPivot.add(plate);
-})();
-var keyPick = new THREE.Group();
-scene.add(keyPick);
-keyPick.visible = false;
-var keyItem = new THREE.Group();
-keyPick.add(keyItem);
-(function () {
-  var gold = new THREE.MeshPhongMaterial({ color: 0xf0c040, shininess: 90 });
-  var ring = new THREE.Mesh(new THREE.TorusGeometry(0.11, 0.028, 8, 18), gold);
-  ring.position.x = -0.3;
-  keyItem.add(ring);
-  var shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.026, 0.026, 0.5, 8), gold);
-  shaft.rotation.z = Math.PI / 2;
-  keyItem.add(shaft);
-  [0.14, 0.24].forEach(function (x) {
-    var tooth = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.12, 0.04), gold);
-    tooth.position.set(x, -0.07, 0);
-    keyItem.add(tooth);
-  });
-  keyItem.scale.setScalar(1.8);
-  addPickupGlow(keyPick, keyItem, 0xffd25a, 0.5, 2);
+  porchView.rotation.y = Math.PI;
+  porchView.position.set(0, 1.6, 18.2);
+  houseG.add(porchView);
+  addHouseBox(4, 0.1, 2.2, houseMaterials.wood, 0, -0.05, 17.1);
+  addHouseBox(0.2, 3.2, 2.2, houseMaterials.dark, -2, 1.6, 17.1);
+  addHouseBox(0.2, 3.2, 2.2, houseMaterials.dark, 2, 1.6, 17.1);
+  addHouseBox(3, 3.2, 0.2, houseMaterials.black, 12, 1.6, -25.4);
 })();
 function setWorld(nextWorld) {
   var toHouse = nextWorld === WORLDS.house;
@@ -4092,31 +4297,184 @@ function setWorld(nextWorld) {
   sun.castShadow = !toHouse;
   lamp.distance = toHouse ? 12 : 7;
   hemi.groundColor.setHex(toHouse ? 0x3a2a1c : 0x6a7a3a);
-  DOOR.set(world.exit.x, 0, world.exit.z);
-  atticOpen = 0;
-  atticPivot.rotation.y = 0;
-  hasKey = false;
-  lockT = 0;
-}
-function showFloorFixtures() {
-  // the attic door only exists on the top floor; below it there is a stairway
-  atticPivot.visible = !isInHouse || onTopFloor();
-  stairsUpSign.visible = isInHouse && !onTopFloor();
-  atticOpen = 0;
-  atticPivot.rotation.y = 0;
+  resetDoors();
 }
 function houseLight(frac) {
   // dim, warm, and darker as the day runs out
   sun.intensity = 0;
   hemi.color.setRGB(1, 0.82, 0.62);
-  hemi.intensity = 0.42 + 0.3 * frac - 0.05 * floorNo;
+  hemi.intensity = 0.42 + 0.3 * frac;
   scene.background.setHex(0x0a0706);
   scene.fog.color.setHex(0x0a0706);
   scene.fog.near = 4;
-  scene.fog.far = 20 + 16 * frac - 2 * floorNo;
+  scene.fog.far = 20 + 16 * frac;
   lamp.intensity = 1.05;
   dimHouseWindows(frac);
 }
+// ---------- what is in the rooms of the house: furniture, the kitchen and its knife, the broken nursery ----------
+// Low furniture (up to CLIMB_H) can be climbed: you jump onto it (a noise), the clowns clamber over it slowly.
+var PIT_DEPTH = 4,
+  kitchenCabinets = [],
+  hasKnife = false,
+  knifeCabinet = null,
+  knifeInCabinet = new THREE.Group();
+(function furnishRooms() {
+  // living room
+  addFurniture(-10.5, 13.4, 3.2, 1.0, 0.8, 0x5a3a3a);
+  addHouseBox(3.2, 0.6, 0.25, 0x4a2c2c, -10.5, 1.1, 13.95);
+  addFurniture(-10.5, 11.2, 1.6, 0.8, 0.45, 0x4a3322);
+  addFurniture(-15.5, 11.5, 0.6, 2.4, 1.0, 0x3b2a1c);
+  addHouseBox(0.08, 0.7, 1.4, houseMaterials.black, -15.4, 1.45, 11.5);
+  addFurniture(-8, 8.45, 2.0, 0.5, 2.2, 0x3b2a1c);
+  addFurniture(-7, 14.8, 1.0, 1.0, 0.8, 0x6a4a3a);
+  // hall
+  addFurniture(-3.8, 15.5, 1.4, 0.5, 0.5, 0x4a3322);
+  addFurniture(4.2, 15.3, 0.5, 0.5, 2.0, 0x2a1f16);
+  // dining room
+  addFurniture(10.5, 12, 3.2, 1.6, 0.8, 0x5a3b26);
+  [8.6, 12.4].forEach(function (chairX) {
+    addFurniture(chairX, 12, 0.5, 0.5, 0.5, 0x3b2a1c);
+  });
+  addFurniture(15.5, 12, 0.6, 2.6, 1.0, 0x3b2a1c);
+  // bedroom
+  addFurniture(-14.7, 4.2, 2.2, 2.6, 0.6, 0x6a6a7a);
+  addHouseBox(2.2, 0.9, 0.2, houseMaterials.wood, -14.7, 0.45, 5.6);
+  addFurniture(-15.5, -3.5, 0.6, 2.0, 2.2, 0x3b2a1c);
+  addFurniture(-8.5, 2, 0.6, 1.6, 1.0, 0x4a3322);
+  // the corridor: things left lying about
+  addFurniture(-6.8, -1, 0.8, 0.8, 0.7, 0x6a5a3a);
+  addFurniture(-1, 6.6, 0.8, 0.6, 0.9, 0x5a4a3a);
+  addFurniture(3.4, -6.8, 0.8, 1.2, 1.0, 0x4a3a2a);
+  // storeroom: tall shelves you have to go round
+  addFurniture(0, -17, 0.6, 8, 2.2, 0x3b2a1c);
+  addFurniture(3.2, -12.5, 0.6, 7, 2.2, 0x3b2a1c);
+  addFurniture(4.8, -22.5, 1.2, 1.2, 0.8, 0x6a5a3a);
+  addFurniture(-3.2, -9.2, 1.0, 1.0, 0.8, 0x6a5a3a);
+  // mudroom
+  addFurniture(15.4, -18, 0.8, 0.8, 0.9, 0xcfcac0);
+  addFurniture(7, -20, 0.6, 2.0, 0.5, 0x4a3322);
+  addFurniture(9, -16, 1.0, 1.0, 0.8, 0x6a5a3a);
+  // kitchen: a counter with four cabinets along the east wall, a fridge, an island
+  addFurniture(15.5, -1.5, 0.7, 11, 0.95, 0x6c665c);
+  addHouseBox(0.8, 0.05, 11.1, lambertMaterial(0xb8b0a0), 15.45, 0.97, -1.5);
+  addFurniture(15.4, 6, 0.9, 1.0, 2.0, 0xd8d4cc);
+  addFurniture(9.5, -1, 3, 1.4, 0.95, 0x5a4a3a);
+  [-6, -3.5, -1, 1.5].forEach(function (cabinetZ) {
+    addHouseBox(0.02, 0.7, 0.6, houseMaterials.black, 15.14, 0.45, cabinetZ + 0.3);
+    var cabinet = addSwingingDoor({
+      x0: 15.09,
+      z0: cabinetZ,
+      along: 'z',
+      width: 0.6,
+      height: 0.7,
+      bottom: 0.1,
+      swing: -1,
+      kind: 'cabinet',
+      color: 0x8a8274,
+      onOpened: function (door) {
+        if (door === knifeCabinet && !hasKnife) takeKnife();
+      }
+    });
+    kitchenCabinets.push(cabinet);
+  });
+  var steel = new THREE.MeshPhongMaterial({ color: 0xd8dce0, shininess: 120 }),
+    blade = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.26, 0.05), steel),
+    handle = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.12, 0.035), lambertMaterial(0x2a1a10));
+  blade.position.y = -0.1;
+  handle.position.y = 0.09;
+  knifeInCabinet.add(blade);
+  knifeInCabinet.add(handle);
+  houseG.add(knifeInCabinet);
+})();
+// the knife lies in a different cabinet every time
+function resetKnife() {
+  hasKnife = false;
+  knifeCabinet = kitchenCabinets[Math.floor(Math.random() * kitchenCabinets.length)];
+  knifeInCabinet.position.set(15.12, 0.5, knifeCabinet.z);
+  knifeInCabinet.visible = true;
+  updateActionButtonLabel();
+}
+function takeKnife() {
+  hasKnife = true;
+  knifeInCabinet.visible = false;
+  announce('A KITCHEN KNIFE', 'Stab a clown with it and he stays down.', 2800);
+  updateActionButtonLabel();
+  play('thud', 0.5, 1.8);
+}
+// the nursery: the floor has fallen through. What is left to stand on: a strip by the doors, a crate,
+// a chest of drawers, and the ledge under the window where the ladder is. One long running jump at the end.
+(function buildNursery() {
+  var pitMaterial = lambertMaterial(0x0c0806);
+  WORLDS.house.pits.forEach(function (pit) {
+    var width = pit[1] - pit[0],
+      depth = pit[3] - pit[2],
+      centerX = (pit[0] + pit[1]) / 2,
+      centerZ = (pit[2] + pit[3]) / 2;
+    addHouseBox(width, 0.1, depth, houseMaterials.black, centerX, -PIT_DEPTH, centerZ);
+    // to the clowns and friends a hole is a wall: they go round it, only you can fall in
+    houseObs.push({ x0: pit[0], x1: pit[1], z0: pit[2], z1: pit[3], h: 3.6, pit: true });
+  });
+  // the walls of the hole, under the floor that is left
+  addHouseBox(12, PIT_DEPTH, 0.1, pitMaterial, -10, -PIT_DEPTH / 2, -10.55);
+  addHouseBox(2, PIT_DEPTH, 0.1, pitMaterial, -15, -PIT_DEPTH / 2, -19.45);
+  addHouseBox(0.1, PIT_DEPTH, 4.5, pitMaterial, -13.95, -PIT_DEPTH / 2, -21.75);
+  // broken joists down in the dark, and splintered boards along the edges
+  for (var joistX = -15; joistX < -4; joistX += 1.6)
+    addHouseBox(0.18, 0.25, 13, houseMaterials.wood, joistX, -0.9, -17.25);
+  [-15, -12.5, -9.8, -7.1, -5].forEach(function (boardX, boardIndex) {
+    addHouseBox(
+      0.25,
+      0.04,
+      0.5 + (boardIndex % 3) * 0.3,
+      houseMaterials.wood,
+      boardX,
+      -0.02,
+      -10.8
+    );
+  });
+  // what is left to stand on, each on a pillar of rubble from the floor below
+  [
+    [-7, -12.8, 1.2, 1.2, 0.45, 0x6a5a3a],
+    [-9.8, -15.4, 0.9, 0.9, 0.7, 0x4a3322]
+  ].forEach(function (stone) {
+    var top = stone[4];
+    addHouseBox(
+      stone[2],
+      top + PIT_DEPTH,
+      stone[3],
+      stone[5],
+      stone[0],
+      (top - PIT_DEPTH) / 2,
+      stone[1],
+      top
+    );
+  });
+  // the window, open, with the top of a ladder over the sill: the way down
+  var windowZ = -22.6,
+    view = new THREE.Mesh(
+      new THREE.PlaneGeometry(1.6, 1.4),
+      new THREE.MeshBasicMaterial({ map: neighbourhoodViewTexture() })
+    );
+  view.rotation.y = Math.PI / 2;
+  view.position.set(-15.84, 1.7, windowZ);
+  houseG.add(view);
+  addHouseBox(0.12, 0.1, 1.8, houseMaterials.baseboard, -15.8, 1.0, windowZ);
+  addHouseBox(0.12, 0.1, 1.8, houseMaterials.baseboard, -15.8, 2.4, windowZ);
+  [-0.85, 0.85].forEach(function (offset) {
+    addHouseBox(0.12, 1.5, 0.1, houseMaterials.baseboard, -15.8, 1.7, windowZ + offset);
+  });
+  var ladderMaterial = lambertMaterial(0xa08050);
+  [-0.3, 0.3].forEach(function (offset) {
+    addHouseBox(0.07, 0.9, 0.07, ladderMaterial, -15.72, 1.35, windowZ + offset);
+  });
+  [1.25, 1.6].forEach(function (rungY) {
+    addHouseBox(0.05, 0.05, 0.6, ladderMaterial, -15.72, rungY, windowZ);
+  });
+  var exitGlow = new THREE.Mesh(new THREE.RingGeometry(0.45, 0.7, 32), glowMaterial(0x4aff7a, 0.5));
+  exitGlow.rotation.x = -Math.PI / 2;
+  exitGlow.position.set(-15.2, 0.03, windowZ);
+  houseG.add(exitGlow);
+})();
 // ---------- windows in the outer walls of the house, looking out on the neighbourhood ----------
 // The rooms are sealed boxes, so each window is a pane painted with a flat view of the street.
 // houseLight() dims these panes as the day runs out.
@@ -4206,9 +4564,11 @@ function neighbourhoodViewTexture() {
     );
   }
   // placed clear of the wardrobes and dressers standing against these walls
-  [-10, -1, 7].forEach(function (z) {
-    addWindow(-9, z);
-    addWindow(9, z);
+  [12, 0, -15].forEach(function (z) {
+    addWindow(-16, z);
+  });
+  [12, -16].forEach(function (z) {
+    addWindow(16, z);
   });
 })();
 function dimHouseWindows(frac) {
@@ -4849,14 +5209,16 @@ function reset() {
   pFeet = playerVerticalSpeed = 0;
   stam = 1;
   stamLock = false;
-  yaw = 0;
+  yaw = world.playerStart.yaw;
   pitch = 0;
   camera.rotation.z = 0;
+  DAY = world.dayLength;
   timeLeft = DAY;
   clown.position.set(world.clownStart.x, 0, world.clownStart.z);
   clown.rotation.y = world.clownStart.facing;
   clown.visible = world.hasClown;
   Object.assign(clownState, freshClownState());
+  mainClownListener = freshListener();
   clownState.arriveT = world.clownArrivalHold;
   knockReset();
   resetBat();
@@ -4886,6 +5248,7 @@ function reset() {
     friend.r.inner.rotation.set(0, 0, 0);
     friend.r.inner.position.set(0, 0, 0);
   });
+  resetHouseClowns();
   balloon.visible = false;
   balloonHeld = false;
   killer = null;
@@ -4911,7 +5274,7 @@ function reset() {
     clueObject.visible = world.hasPapers && clueIndex === nextClue;
   });
   resetParty();
-  showFloorFixtures();
+  resetKnife();
   setDay(1);
   ui.hint.textContent = stageLabel();
 }
@@ -4925,7 +5288,6 @@ function begin(keep) {
   clearTimers();
   if (keep !== true) {
     level = 0;
-    floorNo = 0;
     cluesReadBeforeThisStage = [];
   }
   reset();
@@ -5018,7 +5380,8 @@ function nightfall() {
     var rigs = [main].concat(
       friends.map(function (friend) {
         return friend.r;
-      })
+      }),
+      houseClownRigs()
     );
     // all of them in an arc behind you, however many there are
     rigs.forEach(function (rig, i) {
@@ -5059,23 +5422,18 @@ function nightfall() {
   }, 2300);
 }
 
-// "Level 2 \u00b7 floor 2 of 3", "Level 1 \u00b7 Happy Birthday!": which part of the game you are in
+// "Level 2", "Level 1 \u00b7 Happy Birthday!": which part of the game you are in
 function stageLabel() {
-  return (
-    'Level ' +
-    level +
-    (isInHouse ? ' \u00b7 floor ' + (floorNo + 1) + ' of ' + world.floors : '') +
-    (world.title ? ' \u00b7 ' + world.title : '')
-  );
+  return 'Level ' + level + (world.title ? ' \u00b7 ' + world.title : '');
 }
 
-// Fade out, move on (next level, or the next floor of the house), fade back in.
+// Fade out, move on to the next level, fade back in.
 // The bat, the horn and any followers come with you.
-function moveToNextStage(nextLevel) {
+function moveToNextStage() {
   state = 'transition';
   touchUi(false);
-  play('door', nextLevel ? 0.9 : 0.5);
-  play('win', nextLevel ? 0.8 : 0.5);
+  play('door', 0.9);
+  play('win', 0.8);
   keys = {};
   ui.fade.style.transition = 'opacity .6s';
   ui.fade.style.opacity = 1;
@@ -5087,11 +5445,8 @@ function moveToNextStage(nextLevel) {
       return friend.on;
     });
   later(function () {
-    if (nextLevel) {
-      level++;
-      floorNo = 0;
-      rememberLevelReached(level);
-    } else floorNo++;
+    level++;
+    rememberLevelReached(level);
     cluesReadBeforeThisStage = clueGot.slice();
     reset();
     if (clownHasBat) {
@@ -5110,7 +5465,7 @@ function moveToNextStage(nextLevel) {
       hornUi();
     }
     followers.forEach(function (wasOn, index) {
-      if (wasOn) spawnFriend(friends[index]);
+      if (wasOn && !isInHouse) spawnFriend(friends[index]);
     });
     introT = 0;
     if (world.clownsFromDoor) startBirthdaySong();
@@ -5128,10 +5483,21 @@ function moveToNextStage(nextLevel) {
   }, 2300);
 }
 function escape() {
-  moveToNextStage(true);
+  moveToNextStage();
 }
-function climbStairs() {
-  moveToNextStage(false);
+// missed the jump in the nursery: down through the floor, and the level starts again
+function fellIntoPit() {
+  state = 'falling';
+  touchUi(false);
+  keys = {};
+  play('thud', 0.9, 0.55);
+  ui.fadeText.textContent = 'You fell';
+  ui.fade.style.transition = 'opacity .6s';
+  ui.fade.style.opacity = 1;
+  later(function () {
+    begin(true);
+    toast('You fell. The level starts again.', 2400);
+  }, 1700);
 }
 
 function openNote(clueIndex) {
@@ -5463,6 +5829,7 @@ addEventListener('keydown', function (event) {
   if (event.code === 'KeyF') kick();
   if (event.code === 'KeyQ') blowHorn();
   if (state === 'read' && (event.code === 'Enter' || event.code === 'KeyE')) closeNote();
+  else if (event.code === 'KeyE' && !event.repeat) interact();
 });
 addEventListener('keyup', function (event) {
   keys[event.code] = false;
@@ -5572,7 +5939,7 @@ actionBtn.addEventListener(
   'touchstart',
   function (event) {
     event.preventDefault();
-    swingOrKick();
+    if (!interact()) swingOrKick();
   },
   { passive: false }
 );
@@ -5580,7 +5947,26 @@ actionBtn.addEventListener('mousedown', function (event) {
   event.stopPropagation();
 });
 actionBtn.addEventListener('click', function () {
-  if (!isTouch) swingOrKick();
+  if (!isTouch && !interact()) swingOrKick();
+});
+// sneaking on a touch screen is a toggle: holding it down as well as the stick would take a third thumb
+var sneakBtn = document.getElementById('sneak'),
+  sneakHeld = false;
+function setSneak(on) {
+  sneakHeld = on;
+  sneakBtn.classList.toggle('on', on);
+}
+sneakBtn.addEventListener(
+  'touchstart',
+  function (event) {
+    event.preventDefault();
+    setSneak(!sneakHeld);
+  },
+  { passive: false }
+);
+sneakBtn.addEventListener('mousedown', function (event) {
+  event.stopPropagation();
+  setSneak(!sneakHeld);
 });
 jumpBtn.addEventListener(
   'touchstart',
@@ -5624,13 +6010,226 @@ function touchUi(active) {
   touchPad.hidden = !(active && isTouch);
   actionBtn.hidden = !(active && isTouch);
   jumpBtn.hidden = runBtn.hidden = !(active && isTouch);
+  sneakBtn.hidden = !(active && isTouch && isInHouse);
   hornBtn.hidden = !(active && isTouch && hasHorn);
   if (!active) runHeld = false;
+  if (!active) setSneak(false);
   if (!active) {
     stickId = lookId = null;
     tMove.x = tMove.z = 0;
     stickShow(false);
   }
+}
+// ---------- the player: looking, walking, sneaking, running, jumping and the footsteps ----------
+var crouchAmount = 0, // 0 standing, 1 crouched; eases between the two
+  CROUCH_EYE_DROP = 0.4;
+// only in the house, where the clowns listen: the garden levels play as they always have
+function isCrouching() {
+  return !!(keys.KeyC || sneakHeld) && introT <= 0 && isInHouse;
+}
+function movePlayer(dt, time) {
+  if (keys.ArrowLeft) yaw += 1.8 * dt;
+  if (keys.ArrowRight) yaw -= 1.8 * dt;
+  if (keys.ArrowUp) pitch = Math.min(1.2, pitch + 1.4 * dt);
+  if (keys.ArrowDown) pitch = Math.max(-1.2, pitch - 1.4 * dt);
+
+  var fx = -Math.sin(yaw),
+    fz = -Math.cos(yaw),
+    rightX = Math.cos(yaw),
+    rightZ = -Math.sin(yaw);
+  var moveX = (keys.KeyD ? 1 : 0) - (keys.KeyA ? 1 : 0) + tMove.x,
+    moveZ = (keys.KeyW ? 1 : 0) - (keys.KeyS ? 1 : 0) + tMove.z;
+  var inputLength = Math.max(1, Math.hypot(moveX, moveZ)),
+    moveIn = moveX || moveZ,
+    crouching = isCrouching(),
+    wantRun =
+      (keys.ShiftLeft || keys.ShiftRight || runHeld) &&
+      moveIn &&
+      moveZ >= 0 &&
+      introT <= 0 &&
+      !crouching,
+    speed;
+  if (wantRun && stam > (stamLock ? 0.3 : 0)) {
+    stamLock = false;
+    stam = Math.max(0, stam - dt * 0.28);
+    speed = SPRINT_SPEED * dt;
+    if (stam === 0) stamLock = true;
+  } else {
+    stam = Math.min(1, stam + dt * (moveIn ? 0.12 : 0.22));
+    speed = moveIn ? (crouching ? CROUCH_SPEED : PLAYER_SPEED) * dt : 0;
+  }
+  crouchAmount += ((crouching ? 1 : 0) - crouchAmount) * Math.min(1, dt * 10);
+  if (introT > 0) speed = 0; // at the cake until the song is over
+  speed *= 1 - 0.4 * Math.max(0, -moveZ / inputLength); // backing away from him is slow
+  pSpd = dt > 0 ? speed / dt : 0;
+  staminaFillEl.style.width = stam * 100 + '%';
+  staminaBarEl.style.opacity = stam < 0.995 ? 1 : 0;
+  tryMove(
+    camera.position,
+    ((fx * moveZ + rightX * moveX) / inputLength) * speed,
+    ((fz * moveZ + rightZ * moveX) / inputLength) * speed,
+    0.4,
+    pFeet,
+    false,
+    true
+  );
+  var gnd = groundAt(camera.position.x, camera.position.z, pFeet, 0.2);
+  if (gnd === 0 && inPit(camera.position.x, camera.position.z, 0.15)) gnd = -3 * PIT_DEPTH;
+  if ((keys.Space || jumpReq) && introT <= 0 && pFeet <= gnd + 0.02) {
+    playerVerticalSpeed = 5.2;
+  }
+  jumpReq = false;
+  playerVerticalSpeed -= 11 * dt;
+  pFeet += playerVerticalSpeed * dt;
+  if (pFeet <= gnd) {
+    // a landing, not just standing: the last frame of a fall can start a hair above the surface
+    if (playerVerticalSpeed < -1.5) noiseOfLanding(gnd, -playerVerticalSpeed);
+    pFeet = gnd;
+    playerVerticalSpeed = 0;
+  }
+  if (pFeet < -1.6) fellIntoPit();
+  var grounded = pFeet <= gnd + 0.02;
+  var running = pSpd > RUNNING_SPEED;
+  if (grounded) noiseOfFootsteps(pSpd);
+  if (grounded && moveIn) {
+    stepAcc += speed;
+    if (stepAcc > (running ? 2.3 : crouching ? 1.1 : 1.7)) {
+      stepAcc = 0;
+      stepK ^= 1;
+      play(
+        stepK ? 'step1' : 'step2',
+        running ? 0.3 : crouching ? 0.08 : 0.2,
+        1.05 + Math.random() * 0.15
+      );
+    }
+  }
+  camera.position.y =
+    PLAYER_EYE_HEIGHT -
+    CROUCH_EYE_DROP * crouchAmount +
+    pFeet +
+    (moveIn && grounded ? Math.sin(time * (running ? 13 : 9)) * 0.04 : 0);
+  camera.rotation.y = yaw;
+  camera.rotation.x = pitch + (kickT > 0 ? 0.06 * Math.sin(Math.PI * (1 - kickT / KICK_DUR)) : 0);
+  camera.rotation.z = shakeT > 0 ? (Math.random() - 0.5) * 0.06 * Math.min(1, shakeT / 0.25) : 0;
+  shakeT = Math.max(0, shakeT - dt);
+  var targetFov = songFrozen() ? 58 : running ? 76 : 70;
+  if (Math.abs(camera.fov - targetFov) > 0.05) {
+    camera.fov += (targetFov - camera.fov) * Math.min(1, dt * 3);
+    camera.updateProjectionMatrix();
+  }
+}
+// ---------- noise: how loud you are, and which clowns in the house hear it ----------
+// Every noise is a point and a radius: a clown inside the radius hears it. Walls and closed doors muffle it.
+var CROUCH_SPEED = 1.7,
+  FOOTSTEP_NOISE_PER_SPEED_SQUARED = 0.35, // about 1 m sneaking, 5 m walking, 14 m running
+  DOOR_NOISE = 12, // a door opening or closing, heard this far (metres)
+  CABINET_NOISE = 8,
+  CLIMB_NOISE = 8, // landing on furniture
+  LANDING_NOISE_PER_SPEED = 1.1, // landing on the floor: this times the speed you land at
+  WALL_MUFFLE = 0.5, // through a wall or a closed door a noise carries this fraction as far
+  HEARING_JITTER = 3, // metres a clown is off when he only just heard it; a loud noise he places exactly
+  HEARING_MEMORY = 8, // seconds a clown keeps going after the last thing he heard
+  CLOWN_SIGHT_RANGE = 8, // in the dark house a clown only sees you this close, with nothing in between
+  NOISE_METER_FULL = 14;
+var noiseEvents = [], // the noises clowns can hear this frame: everything made since the last frame began
+  nextNoiseEvents = [],
+  loudestNoise = 0,
+  noiseMeterLevel = 0,
+  noiseBarEl = document.getElementById('noise-bar'),
+  noiseFillEl = document.getElementById('noise-fill');
+
+// called at the start of every frame: what was made since the last one is what the clowns hear now
+function beginNoiseFrame() {
+  noiseEvents = nextNoiseEvents;
+  nextNoiseEvents = [];
+  loudestNoise = 0;
+  noiseEvents.forEach(function (noise) {
+    loudestNoise = Math.max(loudestNoise, noise.radius);
+  });
+}
+// source (optional): the obstacle that made it, a door that does not muffle its own noise
+function makeNoise(x, z, radius, source) {
+  if (!isInHouse || radius <= 0) return;
+  nextNoiseEvents.push({ x: x, z: z, radius: radius, source: source || null });
+}
+function noiseOfFootsteps(speed) {
+  makeNoise(camera.position.x, camera.position.z, FOOTSTEP_NOISE_PER_SPEED_SQUARED * speed * speed);
+}
+function noiseOfLanding(groundHeight, landingSpeed) {
+  var radius = groundHeight > 0.25 ? CLIMB_NOISE : LANDING_NOISE_PER_SPEED * landingSpeed;
+  makeNoise(camera.position.x, camera.position.z, radius);
+}
+// the meter under the clock: how far your noise carries right now
+function updateNoiseMeter(dt) {
+  noiseMeterLevel = Math.max(
+    Math.min(1, loudestNoise / NOISE_METER_FULL),
+    noiseMeterLevel - dt * 0.8
+  );
+  noiseBarEl.hidden = !isInHouse || state !== 'play';
+  noiseFillEl.style.width = (noiseMeterLevel * 100).toFixed(1) + '%';
+  noiseFillEl.style.background =
+    noiseMeterLevel > 0.6 ? '#e2412f' : noiseMeterLevel > 0.25 ? '#f0b040' : '#8fc07a';
+}
+function clownSeesPlayer(position) {
+  return (
+    Math.hypot(camera.position.x - position.x, camera.position.z - position.z) <
+      CLOWN_SIGHT_RANGE && sightClear(position.x, position.z, camera.position.x, camera.position.z)
+  );
+}
+// does the clown at position hear any of this frame's noises? If so he remembers where he thinks it came from
+function hearNoise(listener, position) {
+  var bestMargin = 0,
+    bestNoise = null;
+  noiseEvents.forEach(function (noise) {
+    var distance = Math.hypot(noise.x - position.x, noise.z - position.z);
+    if (distance > noise.radius) return;
+    if (!sightClear(noise.x, noise.z, position.x, position.z, noise.source))
+      distance /= WALL_MUFFLE;
+    var margin = 1 - distance / noise.radius;
+    if (margin > bestMargin) {
+      bestMargin = margin;
+      bestNoise = noise;
+    }
+  });
+  if (!bestNoise) return false;
+  var guess = HEARING_JITTER * (1 - bestMargin);
+  listener.heardX = bestNoise.x + (Math.random() - 0.5) * 2 * guess;
+  listener.heardZ = bestNoise.z + (Math.random() - 0.5) * 2 * guess;
+  listener.heardT = HEARING_MEMORY;
+  return true;
+}
+function freshListener() {
+  return { heardX: 0, heardZ: 0, heardT: 0, sees: false, flowField: null, flowCell: -1, flowT: 0 };
+}
+// where a clown in the house heads: at you while he can see you, else to the last thing he heard.
+// Returns a unit direction, or null when he has nothing to go on (or has arrived and found nothing).
+function steerByHearing(listener, position, dt) {
+  listener.sees = clownSeesPlayer(position);
+  if (listener.sees) {
+    listener.heardX = camera.position.x;
+    listener.heardZ = camera.position.z;
+    listener.heardT = HEARING_MEMORY;
+  } else hearNoise(listener, position);
+  listener.heardT = Math.max(0, listener.heardT - dt);
+  if (listener.heardT <= 0) return null;
+  var dx = listener.heardX - position.x,
+    dz = listener.heardZ - position.z,
+    distance = Math.hypot(dx, dz);
+  if (distance < 0.6) {
+    listener.heardT = 0;
+    return null;
+  }
+  if (lineClear(position.x, position.z, listener.heardX, listener.heardZ))
+    return { x: dx / distance, z: dz / distance };
+  if (!listener.flowField) listener.flowField = new Int16Array(GRID_WIDTH * GRID_HEIGHT);
+  var targetCell = cellOf(listener.heardX, listener.heardZ);
+  listener.flowT -= dt;
+  if (targetCell !== listener.flowCell || listener.flowT <= 0) {
+    listener.flowCell = targetCell;
+    listener.flowT = 0.3;
+    buildFlowTo(listener.heardX, listener.heardZ, listener.flowField);
+  }
+  return flowDir(position.x, position.z, dx, dz, distance, listener.flowField);
 }
 // ---------- your own arms, the bat, and a kicking leg ----------
 var firstPerson = new THREE.Group();
@@ -5723,6 +6322,7 @@ function fpUpdate(dt) {
     shoeFp.rotation.set(0.5 * kickEase, 0, 0);
     place(legFp, armScratchB.set(0.16, -0.98, 0.1), armScratchA);
   }
+  knifeFpUpdate();
 }
 // the party blowout: pick it up, then blow it (Q or the Honk button) and every clown near you stops to cover his ears
 var hasHorn = false,
@@ -5927,7 +6527,7 @@ function blowHorn() {
       stunnedCount++;
     }
   });
-  friends.forEach(function (friend) {
+  friends.concat(houseClowns).forEach(function (friend) {
     if (
       friend.on &&
       !friend.chaser &&
@@ -5953,7 +6553,7 @@ batPick.add(pickBat);
 addPickupGlow(batPick, pickBat, 0xffd35a, 0.4, 0);
 
 function updateActionButtonLabel() {
-  actionBtn.textContent = hasBat ? 'Swing' : 'Kick';
+  actionBtn.textContent = holdingKnife() ? 'Stab' : hasBat ? 'Swing' : 'Kick';
 }
 function placeBat(x, z) {
   batPick.position.set(x, 0, z);
@@ -5962,12 +6562,10 @@ function placeBat(x, z) {
 function resetBat() {
   hasBat = false;
   hasHorn = false;
-  hasKey = false;
   main.bat.visible = false;
   hornCool = 0;
   hornShowT = 0;
   hornFP.visible = false;
-  lockT = 0;
   var spots = world.pickupSpots.slice();
   function take() {
     return spots.splice(Math.floor(Math.random() * spots.length), 1)[0];
@@ -5979,11 +6577,6 @@ function resetBat() {
     var hornSpot = take();
     hornPick.position.set(hornSpot[0], 0, hornSpot[1]);
   }
-  if (keyNeeded()) {
-    var keySpot = take();
-    keyPick.position.set(keySpot[0], 0, keySpot[1]);
-    keyPick.visible = true;
-  } else keyPick.visible = false;
   updateActionButtonLabel();
   hornUi();
 }
@@ -6072,12 +6665,6 @@ function knockLoose(body, rig, nx, nz) {
 function batUpdate(dt, time) {
   hornCool = Math.max(0, hornCool - dt);
   if (hornPick.visible && pickupUpdate(hornPick, time)) takeHorn();
-  if (keyPick.visible && pickupUpdate(keyPick, time)) {
-    hasKey = true;
-    keyPick.visible = false;
-    announce('ATTIC KEY', 'The attic door is at the far end of the hall.', 3200);
-    play('thud', 0.5, 1.5);
-  }
   if (hornShowT > 0) {
     // the blowout unrolls and curls back up
     hornShowT = Math.max(0, hornShowT - dt);
@@ -6138,12 +6725,13 @@ function kick() {
   play('whoosh', 0.35, 1.3);
 }
 function swingOrKick() {
-  if (hasBat) swing();
+  if (holdingKnife()) stab();
+  else if (hasBat) swing();
   else kick();
 }
 
-// everyone in front of you and in reach, nearest first: the clowns, and any of their friends.
-// f is set for a friend who only moves while you are not looking; body and rig for every target.
+// everyone in front of you and in reach, nearest first: the clowns, any of their friends and the clowns
+// of the house (not the dead). f is set for a friend or a house clown; body and rig for every target.
 function targets(range, minFacingCosine) {
   var fx = -Math.sin(yaw),
     fz = -Math.cos(yaw),
@@ -6164,10 +6752,10 @@ function targets(range, minFacingCosine) {
     });
   }
   activeClowns().forEach(function (clownEntry) {
-    consider(null, clownEntry.body, clownEntry.rig);
+    if (!clownEntry.body.dead) consider(null, clownEntry.body, clownEntry.rig);
   });
-  friends.forEach(function (friend) {
-    if (friend.on && !friend.chaser) consider(friend, friend, friend.r);
+  friends.concat(houseClowns).forEach(function (friend) {
+    if (friend.on && !friend.chaser && !friend.dead) consider(friend, friend, friend.r);
   });
   out.sort(function (first, second) {
     return first.d - second.d;
@@ -6343,7 +6931,7 @@ function buildBlocked() {
         worldZ = ARENA.zMin + (cellZ + 0.5) * GRID_CELL_SIZE;
       for (var obstacleIndex = 0; obstacleIndex < obstacles.length; obstacleIndex++) {
         var obstacle = obstacles[obstacleIndex];
-        if (obstacle.h <= CLIMB_H) continue;
+        if (obstacle.h <= CLIMB_H || obstacle.door) continue; // clowns open doors, so a door is no wall to them
         if (
           worldX > obstacle.x0 - 0.6 &&
           worldX < obstacle.x1 + 0.6 &&
@@ -6373,11 +6961,15 @@ var NEIGHBOR_OFFSETS = [
   [-1, -1]
 ];
 function buildFlow() {
-  flow.fill(-1);
-  var startCell = cellOf(camera.position.x, camera.position.z),
+  buildFlowTo(camera.position.x, camera.position.z, flow);
+}
+// fill field with the number of steps from every reachable cell to (targetX, targetZ)
+function buildFlowTo(targetX, targetZ, field) {
+  field.fill(-1);
+  var startCell = cellOf(targetX, targetZ),
     queueHead = 0,
     queueTail = 0;
-  flow[startCell] = 0;
+  field[startCell] = 0;
   queue[queueTail++] = startCell;
   while (queueHead < queueTail) {
     var cell = queue[queueHead++],
@@ -6388,13 +6980,13 @@ function buildFlow() {
         nz = cz + NEIGHBOR_OFFSETS[neighborIndex][1];
       if (nx < 0 || nz < 0 || nx >= GRID_WIDTH || nz >= GRID_HEIGHT) continue;
       var neighborCell = nz * GRID_WIDTH + nx;
-      if (flow[neighborCell] >= 0 || blockedCell[neighborCell]) continue;
+      if (field[neighborCell] >= 0 || blockedCell[neighborCell]) continue;
       if (
         neighborIndex > 3 &&
         (blockedCell[cz * GRID_WIDTH + nx] || blockedCell[nz * GRID_WIDTH + cx])
       )
         continue; // no cutting corners
-      flow[neighborCell] = flow[cell] + 1;
+      field[neighborCell] = field[cell] + 1;
       queue[queueTail++] = neighborCell;
     }
   }
@@ -6441,10 +7033,11 @@ function segmentHitsBox(fromX, fromZ, toX, toZ, obstacle) {
   }
   return true;
 }
-function sightClear(fromX, fromZ, toX, toZ) {
+// ignoredObstacle (optional): one obstacle to see past, such as the door a noise came from
+function sightClear(fromX, fromZ, toX, toZ, ignoredObstacle) {
   for (var obstacleIndex = 0; obstacleIndex < obstacles.length; obstacleIndex++) {
     var obstacle = obstacles[obstacleIndex];
-    if (obstacle.h <= CLIMB_H) continue;
+    if (obstacle.h <= CLIMB_H || obstacle.pit || obstacle === ignoredObstacle) continue;
     if (segmentHitsBox(fromX, fromZ, toX, toZ, obstacle)) return false;
   }
   return true;
@@ -6462,7 +7055,9 @@ function chaseDir(position, dx, dz, dist, dt) {
   }
   return flowDir(px, pz, dx, dz, dist);
 }
-function flowDir(px, pz, dx, dz, dist) {
+// the way downhill in a flow field (the player's, unless another is given) from (px, pz)
+function flowDir(px, pz, dx, dz, dist, field) {
+  field = field || flow;
   var cell = cellOf(px, pz),
     cx = cell % GRID_WIDTH,
     cz = (cell / GRID_WIDTH) | 0,
@@ -6473,7 +7068,7 @@ function flowDir(px, pz, dx, dz, dist) {
       nz = cz + NEIGHBOR_OFFSETS[neighborIndex][1];
     if (nx < 0 || nz < 0 || nx >= GRID_WIDTH || nz >= GRID_HEIGHT) continue;
     var neighborCell = nz * GRID_WIDTH + nx,
-      flowValue = flow[neighborCell];
+      flowValue = field[neighborCell];
     if (flowValue < 0) continue;
     if (
       neighborIndex > 3 &&
@@ -6507,6 +7102,8 @@ function isSeenByPlayer(x, z, minFacingCosine) {
 var GAIT_STILL = 0,
   GAIT_WALK = 1,
   GAIT_RUN = 2;
+// in the house he does not know where you are: he goes by what he sees and hears (src/22c_noise.js)
+var mainClownListener = freshListener();
 
 function lungePose(pose, time) {
   pose.hL.set(0.22, 0.3 + Math.sin(time * 25) * 0.04, 0.68);
@@ -6648,8 +7245,14 @@ function updateClownBody(body, rig, dt, time, lunge) {
           shakeT = 0.3;
         }
       }
+      // in the house he goes by what he hears (only the main clown is ever in the house)
       var run = !watched || near || body.burst > 0 || body.dashT > 0,
-        dir = chaseDir(root.position, dx, dz, dist, dt);
+        dir = isInHouse
+          ? steerByHearing(mainClownListener, root.position, dt)
+          : chaseDir(root.position, dx, dz, dist, dt);
+      if (dir && isInHouse && clownWaitsAtDoor(root.position, dir)) dir = null;
+    }
+    if (dir) {
       var csp = run
         ? CLOWN_SPEED + 0.6 * (1 - frac) + Math.min(0.5, level * 0.12)
         : STALK_SPEED + Math.min(0.4, level * 0.1);
@@ -6685,7 +7288,14 @@ function updateClownBody(body, rig, dt, time, lunge) {
     if (Math.abs(body.vx) + Math.abs(body.vz) < 0.05) body.vx = body.vz = 0;
   }
   var batting = body.plate > 0 && onFeet;
-  var want = phi + (body.crawl ? Math.PI : 0) + (batting ? -Math.PI / 2 + 0.3 : 0),
+  // in the house he faces where he is going, and only turns to you once he can see you
+  var facing =
+    isInHouse && state === 'play' && !mainClownListener.sees && !batting
+      ? dir
+        ? Math.atan2(dir.x, dir.z)
+        : root.rotation.y
+      : phi;
+  var want = facing + (body.crawl ? Math.PI : 0) + (batting ? -Math.PI / 2 + 0.3 : 0),
     dyw = Math.atan2(Math.sin(want - root.rotation.y), Math.cos(want - root.rotation.y));
   if (!body.down || body.crawl)
     root.rotation.y += dyw * Math.min(1, dt * (body.down ? 4 : !onFeet ? 3 : batting ? 9 : 14));
@@ -6880,14 +7490,14 @@ function keepClownsApart(clownList) {
       tryMove(second, (dx / distance) * push, (dz / distance) * push, 0.3);
     }
 }
-// how frightening the nearest clown is: all of it within 2 m, none past 16 m, less while he is down
+// how frightening the nearest clown is: all of it within 2 m, none past 16 m, less while he is down, none once he is dead
 function clownFear() {
   var most = 0;
   activeClowns().forEach(function (clownEntry) {
     var position = clownEntry.rig.root.position,
       distance = Math.hypot(position.x - camera.position.x, position.z - camera.position.z),
       closeness = Math.max(0, Math.min(1, 1 - (distance - 2) / 14));
-    most = Math.max(most, (clownEntry.body.down ? 0.3 : 1) * closeness);
+    most = Math.max(most, (clownEntry.body.dead ? 0 : clownEntry.body.down ? 0.3 : 1) * closeness);
   });
   return most;
 }
@@ -6972,7 +7582,7 @@ function creepGiggle(dt) {
     fz = -Math.cos(yaw),
     who = null,
     nearestDistance = 99;
-  [null].concat(friends).forEach(function (friend) {
+  [null].concat(friends, houseClowns).forEach(function (friend) {
     if (
       friend
         ? !friend.on || friend.down || friend.hornT > 0
@@ -7079,7 +7689,8 @@ function updateFriends(dt, time, frac) {
       position = rig.root.position;
     if (friend.chaser) return; // he came out of the garden door, and is a clown like the first
     if (!friend.on) {
-      if (world.clownsFromDoor) return;
+      // the house has clowns of its own (src/29b_house_clowns.js)
+      if (world.clownsFromDoor || isInHouse) return;
       if (frac < FR_AT[i] || (i === 0 && clownState.everDown && frac < 0.93)) spawnFriend(friend);
       return;
     }
@@ -7092,58 +7703,20 @@ function updateFriends(dt, time, frac) {
       play('sting', 0.5, 0.75 + i * 0.08);
       shakeT = Math.max(shakeT, 0.25);
     }
-    friend.hitT = Math.max(0, friend.hitT - dt);
-    if (friend.vx || friend.vz) {
-      position.x += friend.vx * dt;
-      position.z += friend.vz * dt;
-      resolve(position, 0.45, 0, false);
-      var dec = Math.max(0, 1 - dt * 6);
-      friend.vx *= dec;
-      friend.vz *= dec;
-      if (Math.abs(friend.vx) + Math.abs(friend.vz) < 0.05) friend.vx = friend.vz = 0;
-    }
-    // knocked down, rolling about, and getting back up like a plank on a hinge
-    if (friend.down) {
-      friend.downT -= dt;
-      if (friend.downT <= 0) {
-        friend.down = false;
-        playClown('low', 0.9, 1.15, position);
-      }
-    }
-    if (fallAndGetUp(friend, rig, dt)) playClown('crack', 1, 0.9, position);
-    friend.hornT = Math.max(0, friend.hornT - dt);
-    if (friend.down || friend.tilt < -0.05) {
-      var downPose = basePose(rig.T);
-      if (friend.down) {
-        poseDown(downPose, time, friend.jolt);
-        animate(rig, dt, 14);
-      } else {
-        downPose.hroll = 0.85;
-        downPose.hpitch = 0.25;
-        downPose.hL.set(0.4, -0.37, 0);
-        downPose.hR.set(-0.4, -0.37, 0);
-        animate(rig, dt, 6);
-      }
-      setFace(rig, 'evil');
-      lookEyes(rig, time, true);
-      return;
-    }
-    if (friend.hornT > 0) {
-      // hands over his ears
-      poseEars(basePose(rig.T), time);
-      animate(rig, dt, 16);
-      setFace(rig, 'scream');
-      lookEyes(rig, time, true);
+    var knocked = knockedAbout(friend, rig, dt, time);
+    if (knocked === 'down') return;
+    if (knocked === 'horn') {
       close = Math.max(close, 1 - (distance - 2) / 10);
       return;
     }
-    if (!seen && friend.hitT <= 0 && distance > 0.8) {
+    var stepDirection = { x: dx / distance, z: dz / distance };
+    if (isInHouse && !lineClear(position.x, position.z, camera.position.x, camera.position.z))
+      stepDirection = flowDir(position.x, position.z, dx, dz, distance);
+    var waitingAtDoor = isInHouse && !seen && clownWaitsAtDoor(position, stepDirection);
+    if (!seen && friend.hitT <= 0 && distance > 0.8 && !waitingAtDoor) {
       // they only ever move while you are not looking
       var walkSpeed = 2.0 + 0.7 * (1 - frac) + Math.min(0.3, level * 0.1),
         stepBefore = Math.floor(friend.ph / Math.PI);
-      var stepDirection = { x: dx / distance, z: dz / distance };
-      if (isInHouse && !lineClear(position.x, position.z, camera.position.x, camera.position.z))
-        stepDirection = flowDir(position.x, position.z, dx, dz, distance);
       position.x += stepDirection.x * walkSpeed * dt;
       position.z += stepDirection.z * walkSpeed * dt;
       resolve(position, 0.45, 0, false);
@@ -7168,15 +7741,298 @@ function updateFriends(dt, time, frac) {
   });
   return { caught: caught, close: Math.max(0, Math.min(1, close)) };
 }
-function update(dt, time) {
-  if (atticOpen > 0 && isInHouse) {
-    atticOpen = Math.min(1, atticOpen + dt * 1.6);
-    atticPivot.rotation.y = -1.7 * atticOpen;
-    if (state === 'transition') {
-      camera.position.z = Math.max(-13.4, camera.position.z - dt * 1.6);
-      camera.position.x += (0 - camera.position.x) * Math.min(1, dt * 3);
+// ---------- the clowns of the house: two wait by the front door, and another comes in at the back door every 20 s ----------
+// The main clown is one of the two at the front door (world.clownStart); everyone else is here. In the dark house
+// they go by what they hear (src/22c_noise.js) and open doors (src/19c_doors.js); the kitchen knife kills them for good.
+var HOUSE_CLOWN_INTERVAL = 20, // seconds between clowns coming in at the back door; there is no limit
+  HOUSE_CLOWN_WANDER_AFTER = 3, // seconds one who came in at the back stands about before he goes looking
+  HOUSE_CLOWN_RUN_SPEED = 3.4, // after you, once he can see you
+  HOUSE_CLOWN_TINTS = [0xc0a0b8, 0xa8b89c, 0xb8b0a0, 0x9cb0c0],
+  HOUSE_CLOWN_FRONT_SPOT = { x: 2.2, z: 13.6 }, // the main clown waits on the other side of the front door
+  HOUSE_CLOWN_BACK_SPOT = { x: 12, z: -23.1 },
+  KNIFE_RANGE = 1.7,
+  STAB_TIME = 0.35,
+  houseClowns = [], // everyone in the house but the main clown, in the order they came in; the rigs are reused
+  houseClownsIn = 0,
+  backDoorShutT = 0,
+  stabT = 0,
+  stabPending = false;
+
+function freshHouseClown(rig) {
+  return {
+    r: rig,
+    on: false,
+    dead: false,
+    guard: false, // guards stay where they are until they hear something; the rest go looking
+    listener: freshListener(),
+    idleT: 0,
+    ph: 0,
+    hitT: 0,
+    spotted: false,
+    vx: 0,
+    vz: 0,
+    down: false,
+    downT: 0,
+    ext: 2,
+    tilt: 0,
+    rollA: 0,
+    rollV: 0,
+    spin: 0,
+    jolt: 0,
+    hornT: 0
+  };
+}
+function bringInHouseClown(spot, guard, facing) {
+  var body = houseClowns[houseClownsIn];
+  if (!body) {
+    var tintIndex = houseClowns.length % HOUSE_CLOWN_TINTS.length;
+    body = freshHouseClown(
+      makeClown({ tint: HOUSE_CLOWN_TINTS[tintIndex], scale: 0.92 + (tintIndex % 3) * 0.07 })
+    );
+    houseClowns.push(body);
+  }
+  Object.assign(body, freshHouseClown(body.r));
+  body.on = true;
+  body.guard = guard;
+  houseClownsIn++;
+  var rig = body.r;
+  rig.root.position.set(spot.x, 0, spot.z);
+  rig.root.rotation.y = facing;
+  rig.root.visible = true;
+  rig.inner.rotation.set(0, 0, 0);
+  rig.inner.position.set(0, 0, 0);
+  clearRigMarks(rig);
+  basePose(rig.T);
+  animate(rig, 1, 100);
+  setFace(rig, 'evil');
+  return body;
+}
+function comeInAtBackDoor() {
+  bringInHouseClown(HOUSE_CLOWN_BACK_SPOT, false, 0);
+  moveDoor(backDoor, 1, false);
+  backDoorShutT = DOOR_SWING_TIME + 1.5;
+  toast('The back door. Someone came in.', 1800);
+}
+// a new level: nobody in the house but the two at the front door
+function resetHouseClowns() {
+  houseClowns.forEach(function (body) {
+    body.on = false;
+    body.r.root.visible = false;
+  });
+  houseClownsIn = 0;
+  backDoorShutT = 0;
+  stabT = 0;
+  stabPending = false;
+  if (isInHouse) bringInHouseClown(HOUSE_CLOWN_FRONT_SPOT, true, Math.PI);
+}
+function houseClownRigs() {
+  return houseClowns
+    .filter(function (body) {
+      return body.on && !body.dead;
+    })
+    .map(function (body) {
+      return body.r;
+    });
+}
+function clearRigMarks(rig) {
+  rig.marks.forEach(function (mark) {
+    mark.parent.remove(mark);
+  });
+  rig.marks = [];
+}
+
+// knocked down, getting up, or deafened by the horn: what the friends and the house clowns share.
+// Returns 'down' or 'horn' when that is all the body does this frame (it has been posed), else null.
+function knockedAbout(body, rig, dt, time) {
+  var position = rig.root.position;
+  body.hitT = Math.max(0, body.hitT - dt);
+  if (body.vx || body.vz) {
+    position.x += body.vx * dt;
+    position.z += body.vz * dt;
+    resolve(position, 0.45, 0, false);
+    var slowDown = Math.max(0, 1 - dt * 6);
+    body.vx *= slowDown;
+    body.vz *= slowDown;
+    if (Math.abs(body.vx) + Math.abs(body.vz) < 0.05) body.vx = body.vz = 0;
+  }
+  if (body.down) {
+    body.downT -= dt;
+    if (body.downT <= 0) {
+      body.down = false;
+      playClown('low', 0.9, 1.15, position);
     }
   }
+  if (fallAndGetUp(body, rig, dt)) playClown('crack', 1, 0.9, position);
+  body.hornT = Math.max(0, body.hornT - dt);
+  if (body.down || body.tilt < -0.05) {
+    var downPose = basePose(rig.T);
+    if (body.down) {
+      poseDown(downPose, time, body.jolt);
+      animate(rig, dt, 14);
+    } else {
+      downPose.hroll = 0.85;
+      downPose.hpitch = 0.25;
+      downPose.hL.set(0.4, -0.37, 0);
+      downPose.hR.set(-0.4, -0.37, 0);
+      animate(rig, dt, 6);
+    }
+    setFace(rig, 'evil');
+    lookEyes(rig, time, true);
+    return 'down';
+  }
+  if (body.hornT > 0) {
+    poseEars(basePose(rig.T), time);
+    animate(rig, dt, 16);
+    setFace(rig, 'scream');
+    lookEyes(rig, time, true);
+    return 'horn';
+  }
+  return null;
+}
+
+function updateHouseClowns(dt, time) {
+  var caught = null,
+    close = 0;
+  if (!isInHouse) return { caught: caught, close: close };
+  // one more at the back door every HOUSE_CLOWN_INTERVAL seconds of the day
+  var expected = 1 + Math.floor((DAY - timeLeft) / HOUSE_CLOWN_INTERVAL);
+  while (houseClownsIn < expected) comeInAtBackDoor();
+  if (backDoorShutT > 0) {
+    backDoorShutT -= dt;
+    if (backDoorShutT <= 0) moveDoor(backDoor, 0, false);
+  }
+  houseClowns.forEach(function (body, i) {
+    if (!body.on) return;
+    var rig = body.r,
+      position = rig.root.position,
+      knocked = knockedAbout(body, rig, dt, time),
+      dx = camera.position.x - position.x,
+      dz = camera.position.z - position.z,
+      distance = Math.hypot(dx, dz) || 1;
+    if (knocked === 'down') return;
+    if (knocked === 'horn') {
+      close = Math.max(close, 1 - (distance - 2) / 10);
+      return;
+    }
+    var direction = steerByHearing(body.listener, position, dt),
+      listener = body.listener;
+    if (!direction && !body.guard) {
+      // nothing to go on: after a while he goes and looks in one of the rooms
+      body.idleT += dt;
+      if (body.idleT > HOUSE_CLOWN_WANDER_AFTER) {
+        var spot = world.pickupSpots[Math.floor(Math.random() * world.pickupSpots.length)];
+        listener.heardX = spot[0];
+        listener.heardZ = spot[1];
+        listener.heardT = HEARING_MEMORY;
+        body.idleT = 0;
+      }
+    } else body.idleT = 0;
+    if (direction && clownWaitsAtDoor(position, direction)) direction = null;
+    var pose = basePose(rig.T);
+    if (direction) {
+      var running = listener.sees,
+        speed = running ? HOUSE_CLOWN_RUN_SPEED : STALK_SPEED,
+        stepBefore = Math.floor(body.ph / Math.PI);
+      if (groundAt(position.x, position.z, 9, 0.5) > 0) speed *= 0.55; // clambering over furniture
+      tryMove(position, direction.x * speed * dt, direction.z * speed * dt, 0.5, 0, true);
+      body.ph += (dt * Math.PI * speed) / (running ? 1.04 : 0.68);
+      var turn = Math.atan2(direction.x, direction.z) - rig.root.rotation.y;
+      rig.root.rotation.y += Math.atan2(Math.sin(turn), Math.cos(turn)) * Math.min(1, dt * 8);
+      if (running) poseRun(pose, body.ph);
+      else poseWalk(pose, body.ph, 0.34, 0.1, 0.05, 0.04);
+      pose.hroll = i % 2 ? 0.3 : -0.3;
+      animate(rig, dt, 18);
+      if (Math.floor(body.ph / Math.PI) !== stepBefore)
+        playClown(stepBefore % 2 ? 'step1' : 'step2', running ? 0.9 : 0.5, 0.8, position);
+    } else {
+      // standing still, his head turning, listening
+      pose.hyaw = Math.sin(time * 0.6 + i * 1.7) * 0.7;
+      pose.hroll = 0.25;
+      animate(rig, dt, 6);
+    }
+    position.y += (groundAt(position.x, position.z, 9, 0.25) - position.y) * Math.min(1, dt * 7);
+    setFace(rig, listener.sees ? 'scream' : 'evil');
+    lookEyes(rig, time, false);
+    if (listener.sees) close = Math.max(close, 1 - (distance - 2) / 10);
+    if (distance < 0.9 && body.hitT <= 0) caught = rig;
+  });
+  return { caught: caught, close: Math.max(0, Math.min(1, close)) };
+}
+
+// ---------- the knife: in the house, once you have it, the action is a stab ----------
+var knifeFp = new THREE.Group();
+(function buildFirstPersonKnife() {
+  var blade = new THREE.Mesh(
+      new THREE.BoxGeometry(0.012, 0.035, 0.2),
+      new THREE.MeshPhongMaterial({ color: 0xd8dce0, shininess: 120 })
+    ),
+    handle = new THREE.Mesh(new THREE.BoxGeometry(0.026, 0.034, 0.1), lambertMaterial(0x2a1a10));
+  blade.position.z = -0.15;
+  knifeFp.add(blade);
+  knifeFp.add(handle);
+  knifeFp.visible = false;
+  firstPerson.add(knifeFp);
+})();
+var knifeRestPosition = new Vector3(0.2, -0.3, -0.5),
+  knifeThrustPosition = new Vector3(0.06, -0.2, -0.95);
+function holdingKnife() {
+  return hasKnife && isInHouse;
+}
+function stab() {
+  if (state !== 'play' || introT > 0 || stabT > 0) return;
+  stabT = STAB_TIME;
+  stabPending = true;
+  play('whoosh', 0.3, 1.7);
+}
+// the nearest clown in front of you and in reach goes down and stays down
+function doStab() {
+  var victim = target(KNIFE_RANGE, 0.6);
+  if (!victim) return;
+  play('hit', 0.8, 1.4);
+  flashBlood();
+  shakeT = 0.2;
+  var body = victim.body;
+  if (!victim.f) {
+    if (body.armed) knockLoose(body, victim.rig, victim.nx, victim.nz);
+    body.plate = body.stagT = body.grabT = 0;
+    body.burst = body.dashT = body.hornT = 0;
+    body.crawl = false;
+  }
+  body.dead = true;
+  body.down = true;
+  body.downT = Infinity;
+  body.vx = victim.nx * 2;
+  body.vz = victim.nz * 2;
+  body.rollV = 3;
+  body.jolt = 1;
+  addMark(victim.rig);
+  playClown('down', 0.8, 1, victim.rig.root.position);
+  toast('He will not get up again.', 1400);
+}
+function knifeUpdate(dt) {
+  if (stabT <= 0) return;
+  stabT = Math.max(0, stabT - dt);
+  if (stabPending && 1 - stabT / STAB_TIME >= 0.4) {
+    stabPending = false;
+    doStab();
+  }
+}
+// called from fpUpdate: the knife in your right hand, thrust forward while stabbing
+function knifeFpUpdate() {
+  knifeFp.visible = holdingKnife();
+  if (!knifeFp.visible) return;
+  bat.visible = foreL.visible = fistL.visible = false;
+  foreR.visible = fistR.visible = true;
+  var thrust = stabT > 0 ? Math.sin(Math.PI * (1 - stabT / STAB_TIME)) : 0;
+  knifeFp.position.copy(knifeRestPosition).lerp(knifeThrustPosition, thrust);
+  knifeFp.rotation.set(0.15 - 0.15 * thrust, 0.1, 0);
+  fistR.position.copy(knifeFp.position);
+  place(foreR, fistR.position, armScratchC.set(0.32, -0.9, -0.1));
+}
+function update(dt, time) {
+  beginNoiseFrame();
+  updateNoiseMeter(dt);
+  updateInteractPrompt();
   grassU.uTime.value = time;
   skyU.time.value = time;
   if (post) {
@@ -7203,7 +8059,8 @@ function update(dt, time) {
       .concat(
         friends.map(function (friend) {
           return friend.r;
-        })
+        }),
+        houseClownRigs()
       )
       .forEach(function (rig, i) {
         if (!rig.root.visible) return;
@@ -7258,6 +8115,11 @@ function update(dt, time) {
     firstPerson.visible = false;
     return;
   }
+  if (state === 'falling') {
+    camera.position.y -= dt * 7;
+    firstPerson.visible = false;
+    return;
+  }
   if (state !== 'play') {
     firstPerson.visible = false;
     return;
@@ -7269,76 +8131,8 @@ function update(dt, time) {
     if (introT === 0) startSprint();
   } else if (world !== WORLDS.tutorial) timeLeft -= dt;
 
-  if (keys.ArrowLeft) yaw += 1.8 * dt;
-  if (keys.ArrowRight) yaw -= 1.8 * dt;
-  if (keys.ArrowUp) pitch = Math.min(1.2, pitch + 1.4 * dt);
-  if (keys.ArrowDown) pitch = Math.max(-1.2, pitch - 1.4 * dt);
-
-  var fx = -Math.sin(yaw),
-    fz = -Math.cos(yaw),
-    rightX = Math.cos(yaw),
-    rightZ = -Math.sin(yaw);
-  var moveX = (keys.KeyD ? 1 : 0) - (keys.KeyA ? 1 : 0) + tMove.x,
-    moveZ = (keys.KeyW ? 1 : 0) - (keys.KeyS ? 1 : 0) + tMove.z;
-  var inputLength = Math.max(1, Math.hypot(moveX, moveZ)),
-    moveIn = moveX || moveZ,
-    wantRun = (keys.ShiftLeft || keys.ShiftRight || runHeld) && moveIn && moveZ >= 0 && introT <= 0,
-    speed;
-  if (wantRun && stam > (stamLock ? 0.3 : 0)) {
-    stamLock = false;
-    stam = Math.max(0, stam - dt * 0.28);
-    speed = SPRINT_SPEED * dt;
-    if (stam === 0) stamLock = true;
-  } else {
-    stam = Math.min(1, stam + dt * (moveIn ? 0.12 : 0.22));
-    speed = moveIn ? PLAYER_SPEED * dt : 0;
-  }
-  if (introT > 0) speed = 0; // at the cake until the song is over
-  speed *= 1 - 0.4 * Math.max(0, -moveZ / inputLength); // backing away from him is slow
-  pSpd = dt > 0 ? speed / dt : 0;
-  staminaFillEl.style.width = stam * 100 + '%';
-  staminaBarEl.style.opacity = stam < 0.995 ? 1 : 0;
-  tryMove(
-    camera.position,
-    ((fx * moveZ + rightX * moveX) / inputLength) * speed,
-    ((fz * moveZ + rightZ * moveX) / inputLength) * speed,
-    0.4,
-    pFeet
-  );
-  var gnd = groundAt(camera.position.x, camera.position.z, pFeet, 0.2);
-  if ((keys.Space || jumpReq) && introT <= 0 && pFeet <= gnd + 0.02) {
-    playerVerticalSpeed = 5.2;
-  }
-  jumpReq = false;
-  playerVerticalSpeed -= 11 * dt;
-  pFeet += playerVerticalSpeed * dt;
-  if (pFeet <= gnd) {
-    pFeet = gnd;
-    playerVerticalSpeed = 0;
-  }
-  var grounded = pFeet <= gnd + 0.02;
-  var running = pSpd > RUNNING_SPEED;
-  if (grounded && moveIn) {
-    stepAcc += speed;
-    if (stepAcc > (running ? 2.3 : 1.7)) {
-      stepAcc = 0;
-      stepK ^= 1;
-      play(stepK ? 'step1' : 'step2', running ? 0.3 : 0.2, 1.05 + Math.random() * 0.15);
-    }
-  }
-  camera.position.y =
-    PLAYER_EYE_HEIGHT +
-    pFeet +
-    (moveIn && grounded ? Math.sin(time * (running ? 13 : 9)) * 0.04 : 0);
-  camera.rotation.y = yaw;
-  camera.rotation.x = pitch + (kickT > 0 ? 0.06 * Math.sin(Math.PI * (1 - kickT / KICK_DUR)) : 0);
-  camera.rotation.z = shakeT > 0 ? (Math.random() - 0.5) * 0.06 * Math.min(1, shakeT / 0.25) : 0;
-  shakeT = Math.max(0, shakeT - dt);
-  var targetFov = songFrozen() ? 58 : running ? 76 : 70;
-  if (Math.abs(camera.fov - targetFov) > 0.05) {
-    camera.fov += (targetFov - camera.fov) * Math.min(1, dt * 3);
-    camera.updateProjectionMatrix();
-  }
+  movePlayer(dt, time);
+  if (isInHouse) updateDoors(dt);
 
   var frac = Math.max(0, timeLeft / DAY);
   if (isInHouse && (flowT -= dt) <= 0) {
@@ -7348,7 +8142,8 @@ function update(dt, time) {
   creepGiggle(dt);
   updateClown(dt, time, false);
   updateDoorClowns(dt);
-  var friendsResult = introT > 0 ? { caught: null, close: 0 } : updateFriends(dt, time, frac);
+  var friendsResult = introT > 0 ? { caught: null, close: 0 } : updateFriends(dt, time, frac),
+    houseResult = updateHouseClowns(dt, time);
   if (!isInHouse) {
     var knockers = [
       {
@@ -7396,6 +8191,7 @@ function update(dt, time) {
     if (swingT === 0) batSide = -batSide;
   }
   kickCool = Math.max(0, kickCool - dt);
+  knifeUpdate(dt);
   if (kickT > 0) {
     if (kickPending && KICK_DUR - kickT >= 0.12) {
       kickPending = false;
@@ -7405,7 +8201,8 @@ function update(dt, time) {
   }
   fpUpdate(dt);
 
-  var doorDistance = Math.hypot(camera.position.x - DOOR.x, camera.position.z - DOOR.z);
+  var exitInfo = nearestExit(),
+    doorDistance = exitInfo.distance;
   var want =
     world === WORLDS.tutorial
       ? 0
@@ -7413,21 +8210,19 @@ function update(dt, time) {
         ? songFrozen()
           ? 0.6
           : 0.2 * songProgress()
-        : Math.max(clownFear(), friendsResult.close * 0.85) + 0.25 * (1 - frac);
+        : Math.max(clownFear(), friendsResult.close * 0.85, houseResult.close * 0.85) +
+          0.25 * (1 - frac);
   fear += (Math.min(1, want) - fear) * Math.min(1, dt * 2.5);
   setDay(frac);
   ui.fill.style.width = frac * 100 + '%';
   ui.clock.textContent = formatClock(timeLeft);
   if (introT <= 0 && world !== WORLDS.tutorial)
     ui.hint.textContent =
+      (hasKnife && isInHouse ? 'Knife in hand · ' : '') +
       (hasBat ? 'Bat in hand' : clownState.armed ? 'HE HAS THE BAT' : 'Find the bat') +
-      (!isInHouse
-        ? ' · back garden door '
-        : !onTopFloor()
-          ? ' · stairs up '
-          : hasKey
-            ? ' · attic door '
-            : ' · find the key · attic door ') +
+      ' · ' +
+      exitInfo.exit.label +
+      ' ' +
       Math.round(doorDistance) +
       ' m' +
       (isInHouse ? '' : ' · papers ' + clueGot.filter(Boolean).length + '/' + CLUES.length);
@@ -7448,22 +8243,13 @@ function update(dt, time) {
         openNote(clueIndex);
         return;
       }
-  var doorR = world.exit.radius,
-    batHitBy = batKiller(),
+  var batHitBy = batKiller(),
     catcher = clownCatching();
-  lockT = Math.max(0, lockT - dt);
-  if (keyNeeded() && !hasKey && doorDistance < doorR && lockT <= 0) {
-    lockT = 3;
-    toast('Locked. Find the key.', 1400);
-    play('thud', 0.4, 0.8);
-  }
-  if (doorDistance < doorR && isInHouse && !onTopFloor()) climbStairs();
-  else if (doorDistance < doorR && (!keyNeeded() || hasKey)) {
-    if (isInHouse) atticOpen = 0.001;
-    escape();
-  } else if (batHitBy) die(batHitBy);
+  if (doorDistance < exitInfo.exit.radius) escape();
+  else if (batHitBy) die(batHitBy);
   else if (catcher) die(catcher);
   else if (friendsResult.caught) die(friendsResult.caught);
+  else if (houseResult.caught) die(houseResult.caught);
   else if (timeLeft <= 0) nightfall();
 }
 
@@ -7534,7 +8320,6 @@ function startProfile(profile) {
   activeProfile = profile;
   profile.updated = Date.now();
   saveProfileStore();
-  floorNo = 0;
   cluesReadBeforeThisStage = [];
   if (profile.level > 0) {
     level = profile.level;
@@ -7602,9 +8387,8 @@ renderProfiles();
 window.__bbd = {
   hooks: hooks,
   profiles: { load: loadProfileStore, render: renderProfiles },
-  setLevel: function (levelNumber, floor) {
+  setLevel: function (levelNumber) {
     level = levelNumber;
-    floorNo = floor || 0;
     reset();
     introT = 0;
     if (world.clownsFromDoor) skipBirthdaySong();
@@ -7612,7 +8396,6 @@ window.__bbd = {
   // level 1 from the start of the song, as after the tutorial
   startSong: function () {
     level = 1;
-    floorNo = 0;
     reset();
     startBirthdaySong();
   },
@@ -7635,20 +8418,25 @@ window.__bbd = {
     songNotes: songNotes
   },
   blowHorn: blowHorn,
-  keyPick: keyPick,
   hornPick: hornPick,
   batPick: batPick,
-  setKey: function (value) {
-    hasKey = value;
-  },
   setHorn: function (value) {
     hasHorn = value;
   },
   isInHouse: function () {
     return isInHouse;
   },
-  floor: function () {
-    return floorNo;
+  houseMap: function () {
+    // a plan view for the screenshots: no ceiling, lit from above
+    houseCeiling.visible = false;
+    hemi.intensity = 1.6;
+    scene.fog.far = 400;
+    camera.position.set(0, 46, -4);
+    camera.rotation.set(-Math.PI / 2, 0, 0);
+  },
+  kitchenCabinets: kitchenCabinets,
+  hasKnife: function () {
+    return hasKnife;
   },
   hitFriend: hitFriend,
   doHit: doHit,
@@ -7699,6 +8487,7 @@ window.__bbd = {
     if (values.introT != null) introT = values.introT;
     if (values.timeLeft != null) timeLeft = values.timeLeft;
     if (values.state) state = values.state;
+    if (values.pFeet != null) pFeet = values.pFeet;
   },
   setYaw: function (y) {
     yaw = y;
@@ -7706,7 +8495,21 @@ window.__bbd = {
   setPitch: function (pitchValue) {
     pitch = pitchValue;
   },
-  render: draw
+  render: draw,
+  doors: doors,
+  interact: interact,
+  noise: function () {
+    return { events: noiseEvents.slice(), loudest: loudestNoise, meter: noiseMeterLevel };
+  },
+  listener: function () {
+    return mainClownListener;
+  },
+  houseClowns: houseClowns,
+  stab: stab,
+  setKnife: function (value) {
+    hasKnife = value;
+    updateActionButtonLabel();
+  }
 };
 reset();
 requestAnimationFrame(loop);
