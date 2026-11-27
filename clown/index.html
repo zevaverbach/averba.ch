@@ -2160,6 +2160,7 @@ var CLUES = [
   }
 ];
 var clueGot = [],
+  cluesReadBeforeThisStage = [], // the checkpoint reset() restores clueGot to
   clueObjs = CLUES.map(function (clue, clueIndex) {
     var canvas = makeCanvas(64, 96),
       context = canvas.getContext('2d');
@@ -4896,6 +4897,9 @@ function reset() {
   kickT = 0;
   kickCool = 0;
   kickPending = false;
+  // papers read on the levels you got through stay read; the ones read on a failed attempt come back,
+  // so after dying or a retry the count is what it was when you reached this stage, and a new game starts at 0
+  clueGot = cluesReadBeforeThisStage.slice();
   // one paper per garden level at most: the story comes a piece at a time
   var nextClue = -1;
   for (var clueIndex = 0; clueIndex < CLUES.length; clueIndex++)
@@ -4922,6 +4926,7 @@ function begin(keep) {
   if (keep !== true) {
     level = 0;
     floorNo = 0;
+    cluesReadBeforeThisStage = [];
   }
   reset();
   state = 'play';
@@ -4987,7 +4992,7 @@ function die(killedBy) {
     ui.fade.style.opacity = 0;
     ui.fade.style.transition = 'none';
     var foundCount = clueGot.filter(Boolean).length,
-      tail = ' Papers found: ' + foundCount + ' of ' + CLUES.length + '.';
+      tail = world.hasPapers ? ' Papers found: ' + foundCount + ' of ' + CLUES.length + '.' : '';
     showCard(
       timeLeft <= 0 ? 'Night fell' : 'Caught',
       (timeLeft <= 0
@@ -5087,6 +5092,7 @@ function moveToNextStage(nextLevel) {
       floorNo = 0;
       rememberLevelReached(level);
     } else floorNo++;
+    cluesReadBeforeThisStage = clueGot.slice();
     reset();
     if (clownHasBat) {
       clownState.armed = true;
@@ -7529,6 +7535,7 @@ function startProfile(profile) {
   profile.updated = Date.now();
   saveProfileStore();
   floorNo = 0;
+  cluesReadBeforeThisStage = [];
   if (profile.level > 0) {
     level = profile.level;
     begin(true);
